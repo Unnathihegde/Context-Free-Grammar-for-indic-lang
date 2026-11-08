@@ -1,0 +1,8 @@
+seed: 0
+k_folds: 5
+max_len: 20
+paths:
+  data_dir: data
+  raw_corpus: data/raw/telugu_corpus.txt
+  agreement_dir: data/agreement
+  results_dir: results
