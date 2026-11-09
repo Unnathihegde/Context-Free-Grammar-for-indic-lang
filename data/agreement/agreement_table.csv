@@ -1,0 +1,18 @@
+form,type,person,number,gender,source,validated_by,status
+నేను,pronoun,1,sg,,project brief,,unvalidated
+మనం,pronoun,1,pl,,project brief,,unvalidated
+మేము,pronoun,1,pl,,project brief,,unvalidated
+నువ్వు,pronoun,2,sg,,project brief,,unvalidated
+మీరు,pronoun,2,pl,,project brief,,unvalidated
+అతను,pronoun,3,sg,m,project brief,,unvalidated
+ఆమె,pronoun,3,sg,f,project brief,,unvalidated
+వారు,pronoun,3,pl,,project brief,,unvalidated
+వాళ్ళు,pronoun,3,pl,,project brief,,unvalidated
+ాను,verb_ending,1,sg,,project brief,,unvalidated
+ాం,verb_ending,1,pl,,project brief,,unvalidated
+ాము,verb_ending,1,pl,,project brief,,unvalidated
+ావు,verb_ending,2,sg,,project brief,,unvalidated
+ారు,verb_ending,2,pl,,project brief; honorific possible,,unvalidated
+ారు,verb_ending,3,pl,,project brief; honorific possible,,unvalidated
+ాడు,verb_ending,3,sg,m,project brief,,unvalidated
+ింది,verb_ending,3,sg,f/n,project brief,,unvalidated
