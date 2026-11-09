@@ -14,7 +14,7 @@ TABLE_PATH = ROOT / "data" / "agreement" / "agreement_table.csv"
 CANDIDATES_PATH = ROOT / "data" / "agreement" / "agreement_pairs_candidates.csv"
 PAIR_FIELDS = [
     "pair_id", "good_sentence", "bad_sentence", "subject", "good_ending",
-    "bad_ending", "fold", "validated", "validator_notes",
+    "bad_ending", "fold", "source", "validated", "validator_notes",
 ]
 
 
@@ -109,6 +109,7 @@ def build_candidates(sentences, rows, k=5, seed=0):
                     "good_ending": good_ending,
                     "bad_ending": bad_ending,
                     "fold": fold_by_sentence[sentence_index],
+                    "source": "generated",
                     "validated": "",
                     "validator_notes": "",
                 })
