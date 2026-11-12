@@ -64,3 +64,4 @@ def test_prepare_corpus_cli(tmp_path):
     lines = output_file.read_text(encoding="utf8").strip().splitlines()
     assert len(lines) == 1
     assert "నేను రేపు కాలేజీకి" in lines[0]
+

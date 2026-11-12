@@ -14,7 +14,8 @@ TABLE_PATH = ROOT / "data" / "agreement" / "agreement_table.csv"
 CANDIDATES_PATH = ROOT / "data" / "agreement" / "agreement_pairs_candidates.csv"
 PAIR_FIELDS = [
     "pair_id", "good_sentence", "bad_sentence", "subject", "good_ending",
-    "bad_ending", "fold", "source", "validated", "validator_notes",
+    "bad_ending", "ending_variants", "risk_note", "fold", "source", "validated",
+    "validator_notes",
 ]
 
 
@@ -62,9 +63,9 @@ def _sentence_with_replacement(sentence, verb_id, replacement):
 def build_candidates(sentences, rows, k=5, seed=0):
     """Return count summary and candidate rows; every output remains unvalidated.
 
-    A candidate is created only when the pronoun and original verb ending have at
-    least one shared person.  Replacement endings must have no person in common
-    with the subject, preventing a mere number change or an ambiguous match.
+    Spelling variants of the same ending (e.g. -ాం and -ాము) produce one candidate
+    per (good sentence, subject, bad person/number class), retaining all spellings
+    in ending_variants. Suffix -ారు carries risk_note='honorific_possible'.
     """
     pronouns = defaultdict(list)
     endings = defaultdict(list)
@@ -73,6 +74,20 @@ def build_candidates(sentences, rows, k=5, seed=0):
             pronouns[row["form"]].append(row)
         elif row["type"] == "verb_ending":
             endings[row["form"]].append(row)
+
+    # Group verb endings into grammatical classes (collapsing spelling variants)
+    classes = []
+    for form, form_rows in endings.items():
+        key = tuple(sorted((r["person"], r["number"], r.get("gender", "")) for r in form_rows))
+        found = False
+        for c in classes:
+            if c["key"] == key:
+                c["forms"].append(form)
+                c["rows"].extend(form_rows)
+                found = True
+                break
+        if not found:
+            classes.append({"key": key, "forms": [form], "rows": list(form_rows)})
 
     occurrences = list(nsubj_verb_pairs(sentences))
     recognized_pronouns = 0
@@ -96,10 +111,16 @@ def build_candidates(sentences, rows, k=5, seed=0):
             if not subject_people.intersection(good_people):
                 continue
             stem = normalized(verb["word"])[:-len(good_ending)]
-            for bad_ending, bad_rows in endings.items():
-                bad_people = {row["person"] for row in bad_rows}
-                if bad_ending == good_ending or subject_people.intersection(bad_people):
+            for c in classes:
+                forms = c["forms"]
+                if good_ending in forms:
                     continue
+                bad_people = {r["person"] for r in c["rows"]}
+                if subject_people.intersection(bad_people):
+                    continue
+                bad_ending = forms[0]
+                ending_variants = ", ".join(forms)
+                risk_note = "honorific_possible" if bad_ending == "ారు" else ""
                 replacement = stem + bad_ending
                 candidates.append({
                     "pair_id": f"agreement_{len(candidates) + 1:04d}",
@@ -108,6 +129,8 @@ def build_candidates(sentences, rows, k=5, seed=0):
                     "subject": subject["word"],
                     "good_ending": good_ending,
                     "bad_ending": bad_ending,
+                    "ending_variants": ending_variants,
+                    "risk_note": risk_note,
                     "fold": fold_by_sentence[sentence_index],
                     "source": "generated",
                     "validated": "",

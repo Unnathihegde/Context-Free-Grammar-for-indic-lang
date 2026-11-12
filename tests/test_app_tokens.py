@@ -61,3 +61,4 @@ def test_apptest_renders_token_status_table():
     assert "Token" in token_df.columns
     assert "Agreement Table" in token_df.columns
     assert "UNKNOWN" in token_df["Agreement Table"].values
+

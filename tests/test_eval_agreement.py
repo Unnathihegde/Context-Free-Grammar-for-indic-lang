@@ -1,4 +1,4 @@
-from eval_agreement import split_by_sentence, table_status
+from eval_agreement import _reportability, split_by_sentence, table_status
 
 
 def test_sentence_split_keeps_all_variants_of_one_good_sentence_together():
@@ -19,3 +19,15 @@ def test_sentence_split_keeps_all_variants_of_one_good_sentence_together():
 def test_table_must_have_every_row_validated_to_be_reportable():
     assert table_status([{"status": "validated"}]) == "validated"
     assert table_status([{"status": "validated"}, {"status": "unvalidated"}]) == "unvalidated"
+
+
+def test_reportability_requires_at_least_30_distinct_sentences():
+    # 29 distinct sentences -> not reportable
+    reportable, reason = _reportability(n_distinct_total=29, status="validated", lm_mode="corpus", n_test_pairs=50)
+    assert reportable is False
+    assert "fewer than 30 distinct validated good sentences" in reason
+
+    # 30 distinct sentences with valid table and corpus -> reportable
+    reportable, reason = _reportability(n_distinct_total=30, status="validated", lm_mode="corpus", n_test_pairs=50)
+    assert reportable is True
+    assert reason == ""

@@ -168,4 +168,12 @@ else:
                         reasons = sorted(set(false_rows["reportability_reason"].dropna()))
                     detail = " ".join(reasons) if reasons else "See the reportability fields below."
                     st.warning(f"Not reportable: {detail}")
+                if "n_distinct_sentences_test" in result_frame.columns:
+                    low_test = result_frame[
+                        pd.to_numeric(result_frame["n_distinct_sentences_test"], errors="coerce") < 20
+                    ]
+                    if not low_test.empty:
+                        st.warning(
+                            "LOUD WARNING: Fewer than 20 distinct good sentences in test split. Statistical power is low."
+                        )
         st.dataframe(result_frame, hide_index=True)

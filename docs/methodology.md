@@ -110,10 +110,12 @@ Pairs for agreement evaluation are classified into two strictly segregated sourc
 ## 6. Reportability Criteria
 
 A result row in `agreement_results.csv` or `datasize_curve.csv` is marked `reportable = True` **only if all of the following conditions are satisfied**:
-1. At least 30 validated pairs exist for that source (`n_validated >= 30`).
+1. At least 30 **distinct validated good sentences** exist for that source (`n_distinct_sentences_total >= 30`).
 2. The agreement table is fully validated by a Telugu speaker (`table_status == "validated"`).
 3. The real external LM corpus is present (`lm_mode == "corpus"`).
 4. Held-out test pairs exist (`n_test_pairs > 0`).
+
+Additionally, the number of distinct good sentences in the test split (`n_distinct_sentences_test`) is tracked; if it falls below 20, a loud warning is emitted because statistical power is limited.
 
 If any condition fails, the pipeline sets `reportable = False`, logs a warning to the console, and displays a prominent warning in the user interface.
 

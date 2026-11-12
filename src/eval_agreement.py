@@ -168,10 +168,10 @@ def _bootstrap_summary(scored, seed=SEED):
     }
 
 
-def _reportability(n_validated, status, lm_mode, n_test_pairs):
+def _reportability(n_distinct_total, status, lm_mode, n_test_pairs):
     reasons = []
-    if n_validated < 30:
-        reasons.append("fewer than 30 validated pairs")
+    if n_distinct_total < 30:
+        reasons.append("fewer than 30 distinct validated good sentences")
     if status != "validated":
         reasons.append("agreement table is unvalidated")
     if lm_mode != "corpus":
@@ -193,15 +193,19 @@ def evaluate_agreement(candidate_path=CANDIDATES_PATH, validated_path=VALIDATED_
     for source in SOURCES:
         source_pairs = [row for row in all_pairs if row["source"] == source]
         source_validated = [row for row in source_pairs if is_validated(row)]
+        distinct_total = len({row["good_sentence"] for row in source_validated})
         validation, test = split_by_sentence(source_validated)
+        distinct_test = len({row["good_sentence"] for row in test})
         lambda_value = tune_lambda(validation, lm, table_rows)
         scored = score_pairs(test, lm, table_rows, lambda_value) if lambda_value is not None else []
         metrics = _bootstrap_summary(scored)
-        reportable, reason = _reportability(len(source_validated), status, lm_mode, len(test))
+        reportable, reason = _reportability(distinct_total, status, lm_mode, len(test))
         row = {
             "source": source,
             "n_pairs": len(source_pairs),
             "n_validated": len(source_validated),
+            "n_distinct_sentences_total": distinct_total,
+            "n_distinct_sentences_test": distinct_test,
             "n_validation_pairs": len(validation),
             "n_test_pairs": len(test),
             "lambda": "" if lambda_value is None else lambda_value,
@@ -221,7 +225,8 @@ def evaluate_agreement(candidate_path=CANDIDATES_PATH, validated_path=VALIDATED_
 
 
 RESULT_FIELDS = [
-    "source", "n_pairs", "n_validated", "n_validation_pairs", "n_test_pairs", "lambda",
+    "source", "n_pairs", "n_validated", "n_distinct_sentences_total", "n_distinct_sentences_test",
+    "n_validation_pairs", "n_test_pairs", "lambda",
     "b1_acc", "g_acc", "hybrid_acc", "abstention_rate", "b1_ci_low", "b1_ci_high",
     "g_ci_low", "g_ci_high", "hybrid_ci_low", "hybrid_ci_high",
     "paired_bootstrap_p_h_minus_b1", "table_status", "lm_mode", "lm_training_sentences",

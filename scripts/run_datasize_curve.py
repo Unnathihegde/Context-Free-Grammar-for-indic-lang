@@ -25,6 +25,7 @@ CSV_PATH = ROOT / "results" / "datasize_curve.csv"
 PNG_PATH = ROOT / "results" / "datasize_curve.png"
 FIELDS = [
     "source", "requested_n", "lm_training_sentences", "n_pairs", "n_validated",
+    "n_distinct_sentences_total", "n_distinct_sentences_test",
     "n_test_pairs", "b1_acc", "b1_ci_low", "b1_ci_high", "g_acc", "table_status",
     "lm_mode", "reportable", "reportability_reason",
 ]
@@ -49,10 +50,12 @@ def run_curve(candidate_path=CANDIDATES_PATH, validated_path=VALIDATED_PATH,
         for source in SOURCES:
             source_pairs = [row for row in all_pairs if row["source"] == source]
             source_validated = [row for row in source_pairs if is_validated(row)]
+            distinct_total = len({row["good_sentence"] for row in source_validated})
+            distinct_test = len({row["good_sentence"] for row in test_by_source[source]})
             scored = score_pairs(test_by_source[source], lm, table_rows, lambda_value=0)
             metrics = _bootstrap_summary(scored)
             reportable, reason = _reportability(
-                len(source_validated), status, lm_mode, len(test_by_source[source])
+                distinct_total, status, lm_mode, len(test_by_source[source])
             )
             rows.append({
                 "source": source,
@@ -60,6 +63,8 @@ def run_curve(candidate_path=CANDIDATES_PATH, validated_path=VALIDATED_PATH,
                 "lm_training_sentences": lm_training_sentences,
                 "n_pairs": len(source_pairs),
                 "n_validated": len(source_validated),
+                "n_distinct_sentences_total": distinct_total,
+                "n_distinct_sentences_test": distinct_test,
                 "n_test_pairs": len(test_by_source[source]),
                 "b1_acc": "" if metrics is None else metrics["b1_acc"],
                 "b1_ci_low": "" if metrics is None else metrics["b1_ci_low"],
@@ -114,7 +119,12 @@ if __name__ == "__main__":
     rows = write_curve()
     for row in rows:
         print(f"{row['source']} N={row['requested_n']} n_validated={row['n_validated']} "
+              f"distinct_total={row['n_distinct_sentences_total']} "
+              f"distinct_test={row['n_distinct_sentences_test']} "
               f"reportable={row['reportable']}")
+        if row["n_distinct_sentences_test"] < 20:
+            print(f"LOUD WARNING [{row['source']}]: fewer than 20 distinct good sentences in test split "
+                  f"({row['n_distinct_sentences_test']})! Statistical power is low.")
         if not row["reportable"]:
             print(f"WARNING [{row['source']}]: {row['reportability_reason']}")
     print(f"wrote: {CSV_PATH}")
