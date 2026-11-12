@@ -135,6 +135,9 @@ def write_results(output_path=ROOT / "results" / "wordorder_results.csv"):
         formatted_rows.append({
             "kind": row["kind"],
             "n_pairs": row["n_pairs"],
+            "n_validated": "not_applicable",
+            "table_status": "not_applicable",
+            "reportable": True,
             **{key: f"{row[key]:.6f}" for key in (
                 "pcfg_acc", "bigram_acc", "pcfg_ci_low", "pcfg_ci_high",
                 "bigram_ci_low", "bigram_ci_high", "paired_bootstrap_p",
@@ -146,7 +149,7 @@ def write_results(output_path=ROOT / "results" / "wordorder_results.csv"):
             fieldnames=[
                 "kind", "n_pairs", "pcfg_acc", "bigram_acc", "pcfg_ci_low",
                 "pcfg_ci_high", "bigram_ci_low", "bigram_ci_high",
-                "paired_bootstrap_p",
+                "paired_bootstrap_p", "n_validated", "table_status", "reportable",
             ],
         )
         writer.writeheader()

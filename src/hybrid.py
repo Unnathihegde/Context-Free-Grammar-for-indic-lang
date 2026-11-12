@@ -10,8 +10,8 @@ def _tokens(sentence):
     return unicodedata.normalize("NFC", sentence).split()
 
 
-def agreement_violations(sentence, table_rows):
-    """Count pronoun--verb person mismatches, or return None when unsupported.
+def agreement_check(sentence, table_rows):
+    """Return table-backed agreement details for one sentence.
 
     The table supplies all person labels.  A form with multiple listed people (such
     as an honorific candidate) is considered compatible if it shares any person
@@ -37,15 +37,26 @@ def agreement_violations(sentence, table_rows):
             # Longest-match behavior avoids counting a shorter ending inside a longer one.
             recognized_verbs.append(endings[forms[0]])
     if not subjects or not recognized_verbs:
-        return None
+        return {"violations": None, "rule_rows": [], "status": "abstained"}
 
     violations = 0
+    rule_rows = []
     for subject_rows in subjects:
         subject_people = {row["person"] for row in subject_rows}
         for verb_rows in recognized_verbs:
             verb_people = {row["person"] for row in verb_rows}
             violations += not bool(subject_people.intersection(verb_people))
-    return violations
+            rule_rows.extend(subject_rows + verb_rows)
+    return {
+        "violations": violations,
+        "rule_rows": rule_rows,
+        "status": "matched" if violations == 0 else "violated",
+    }
+
+
+def agreement_violations(sentence, table_rows):
+    """Count pronoun--verb person mismatches, or return None when unsupported."""
+    return agreement_check(sentence, table_rows)["violations"]
 
 
 def hybrid_score(b1_score, violations, lambda_value):
