@@ -2,7 +2,7 @@
 
 This project investigates whether explicit hierarchical grammatical structure—induced from a small Universal Dependencies treebank—helps a language model rank grammatical sentences above ungrammatical ones in Telugu, particularly under low-resource data constraints.
 
-> **Key Finding**: The learned PCFG did **not** outperform a simple POS-bigram baseline on word-order minimal-pair tests (PCFG accuracy **0.944** vs. POS-bigram baseline **0.967**, $p = 0.002$). In small, head-final Telugu sentences, canonical word order constraints are predominantly local patterns that low-order n-gram transitions capture effectively without hierarchical syntax.
+> **Key Finding**: The learned PCFG did **not** outperform a simple POS-bigram baseline on word-order minimal-pair tests (PCFG accuracy **0.944** vs. POS-bigram baseline **0.967**, $p \le 0.002$ (smallest value resolvable with 1,000 bootstrap resamples)). In small, head-final Telugu sentences, canonical word order constraints are predominantly local patterns that low-order n-gram transitions capture effectively without hierarchical syntax. While the PCFG achieved higher accuracy on `case_before` (0.821 vs. 0.696 across 56 pairs), this advantage is not statistically significant ($p = 0.058$).
 
 ---
 

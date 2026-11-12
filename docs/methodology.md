@@ -87,7 +87,7 @@ Rigorous boundary isolation prevents optimistic bias:
 - **Clustered Bootstrap Resampling**:
   Because multiple minimal pairs can originate from the same sentence, observations within a sentence are not independent. Standard confidence intervals would underestimate standard errors.
   - Uncertainty is quantified using **sentence-clustered bootstrapping** (1,000 resamples). Complete sentence clusters are sampled with replacement.
-  - Two-sided paired bootstrap $p$-values with finite-sample $+1$ correction are computed to test whether score differences ($H - B_1$ or PCFG vs. Bigram) are statistically significant.
+  - Two-sided paired bootstrap $p$-values with finite-sample $+1$ correction are computed to test whether score differences ($H - B_1$ or PCFG vs. Bigram) are statistically significant. Note that with 1,000 resamples, the minimum resolvable empirical $p$-value is $p \le 0.002$ (i.e., $2 \times \frac{0 + 1}{1000 + 1} \approx 0.001998$).
 
 ---
 

@@ -44,7 +44,8 @@ Because the PCFG rules are induced over coarse POS tags (e.g., `NOUN`, `VERB`, `
 ### 3.1 Head-Final Order is a Local Pattern
 - Telugu is canonically a head-final, SOV language with postpositions.
 - Canonical word order constraints (e.g., verbs appearing sentence-finally, determiners preceding nouns, case markers following nominal stems) are largely **local bigram transitions**.
-- In experimental evaluations on 1,118 minimal pairs, a simple **add-$k$ smoothed POS-bigram model outperformed the hierarchical PCFG** (0.967 overall accuracy for POS-bigram vs. 0.944 for PCFG, $p = 0.002$).
+- In experimental evaluations on 1,118 minimal pairs, a simple **add-$k$ smoothed POS-bigram model outperformed the hierarchical PCFG** (0.967 overall accuracy for POS-bigram vs. 0.944 for PCFG, $p \le 0.002$ (smallest value resolvable with 1,000 bootstrap resamples)).
+- While the PCFG showed higher nominal accuracy on the `case_before` perturbation subset (0.821 for PCFG vs. 0.696 for POS-bigram across 56 pairs), this difference is not statistically significant ($p = 0.058$).
 - **Conclusion**: Context-free hierarchical grammar is unneeded for capturing local canonical order in small Telugu sentences; local n-gram transitions already encode head-final tendencies effectively.
 
 ### 3.2 Imbalanced Perturbation Types

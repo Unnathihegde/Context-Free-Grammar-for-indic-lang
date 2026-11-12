@@ -1,6 +1,7 @@
 """Interactive inspection UI for the Telugu PCFG and agreement scorer."""
 
 import sys
+import unicodedata
 from pathlib import Path
 
 import pandas as pd
@@ -10,7 +11,7 @@ from nltk.parse import ViterbiParser
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from agreement import TABLE_PATH, load_agreement_table  # noqa: E402
+from agreement import TABLE_PATH, ending_forms, load_agreement_table  # noqa: E402
 from grammar_learn import induce, load_all, parse_prob, pos_seq, prepare  # noqa: E402
 from hybrid import agreement_check, hybrid_score  # noqa: E402
 from ngram_lm import train_from_corpus  # noqa: E402
@@ -45,6 +46,47 @@ def sentence_label(index, trees):
     return f"{index + 1}: {words[:120]}"
 
 
+def get_token_statuses(sentence, table_rows, lm=None):
+    """Analyze each word for agreement-table and language-model recognition.
+
+    Unknown words are labeled UNKNOWN, reflecting standard vocabulary and rule
+    coverage limits, not operational errors.
+    """
+    pronouns = {
+        unicodedata.normalize("NFC", row["form"])
+        for row in table_rows
+        if row.get("type") == "pronoun"
+    }
+    ending_rows = [row for row in table_rows if row.get("type") == "verb_ending"]
+
+    tokens = unicodedata.normalize("NFC", sentence).split()
+    records = []
+    for token in tokens:
+        if token in pronouns:
+            agr_status = "KNOWN"
+            agr_detail = "pronoun"
+        else:
+            forms = ending_forms(token, ending_rows)
+            if forms:
+                agr_status = "KNOWN"
+                agr_detail = f"verb ending (-{forms[0]})"
+            else:
+                agr_status = "UNKNOWN"
+                agr_detail = "-"
+
+        record = {
+            "Token": token,
+            "Agreement Table": agr_status,
+            "Agreement Detail": agr_detail,
+        }
+        if lm is not None:
+            record["LM Vocabulary"] = (
+                "IN VOCABULARY" if token in lm.vocabulary else "UNKNOWN"
+            )
+        records.append(record)
+    return records
+
+
 st.set_page_config(page_title="Telugu CFG demo", layout="wide")
 st.title("Telugu PCFG and agreement demo")
 st.caption("Unknown words and unsupported structures are normal model limitations, not errors.")
@@ -74,6 +116,11 @@ user_sentence = st.text_input("Enter a Telugu sentence")
 table_rows = load_agreement_table(TABLE_PATH)
 lm, lm_message = lm_backend()
 if user_sentence.strip():
+    token_records = get_token_statuses(user_sentence, table_rows, lm=lm)
+    st.subheader("Token Analysis")
+    st.caption("Words not recognized in tables are labeled UNKNOWN, not errors.")
+    st.dataframe(pd.DataFrame(token_records), hide_index=True)
+
     check = agreement_check(user_sentence, table_rows)
     if check["status"] == "abstained":
         st.info("Agreement check: abstained — no supported pronoun–verb-ending combination was found.")
@@ -85,7 +132,7 @@ if user_sentence.strip():
     if check["rule_rows"]:
         unique_rows = {tuple(sorted(row.items())): row for row in check["rule_rows"]}
         st.write("Agreement-table rows used:")
-        st.dataframe(pd.DataFrame(unique_rows.values()), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(unique_rows.values()), hide_index=True)
 
     if lm is None:
         st.info(lm_message)
@@ -121,4 +168,4 @@ else:
                         reasons = sorted(set(false_rows["reportability_reason"].dropna()))
                     detail = " ".join(reasons) if reasons else "See the reportability fields below."
                     st.warning(f"Not reportable: {detail}")
-        st.dataframe(result_frame, use_container_width=True, hide_index=True)
+        st.dataframe(result_frame, hide_index=True)
