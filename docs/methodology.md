@@ -116,3 +116,4 @@ A result row in `agreement_results.csv` or `datasize_curve.csv` is marked `repor
 4. Held-out test pairs exist (`n_test_pairs > 0`).
 
 If any condition fails, the pipeline sets `reportable = False`, logs a warning to the console, and displays a prominent warning in the user interface.
+

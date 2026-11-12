@@ -75,3 +75,4 @@ Multiple minimal pairs are frequently derived from a single sentence. Because pe
 ### 4.3 Domain Mismatch with External Corpora
 - When an external LM training corpus (`data/raw/telugu_corpus.txt`) is provided (e.g., from Wikipedia, news corpora, or OSCAR), its vocabulary and genre will inevitably diverge from the pedagogical sentences in the MTG treebank.
 - Out-of-vocabulary (OOV) rates and domain divergence will significantly affect the baseline trigram model's scores.
+
