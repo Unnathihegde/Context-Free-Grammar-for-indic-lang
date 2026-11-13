@@ -9,18 +9,19 @@ FILES = ["data/te_train.conllu", "data/te_dev.conllu", "data/te_test.conllu"]
 
 def read_conllu(fn):
     sents, cur = [], []
-    for line in open(fn, encoding="utf8"):
-        line = line.rstrip("\n")
-        if not line:
-            if cur:
-                sents.append(cur)
-                cur = []
-        elif not line.startswith("#"):
-            f = line.split("\t")
-            if "-" in f[0] or "." in f[0]:
-                continue
-            cur.append({"id": int(f[0]), "word": f[1], "pos": f[3],
-                        "head": int(f[6]), "rel": f[7]})
+    with open(fn, encoding="utf8") as conllu_file:
+        for line in conllu_file:
+            line = line.rstrip("\n")
+            if not line:
+                if cur:
+                    sents.append(cur)
+                    cur = []
+            elif not line.startswith("#"):
+                f = line.split("\t")
+                if "-" in f[0] or "." in f[0]:
+                    continue
+                cur.append({"id": int(f[0]), "word": f[1], "pos": f[3],
+                            "head": int(f[6]), "rel": f[7]})
     if cur:
         sents.append(cur)
     return sents

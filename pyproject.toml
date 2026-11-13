@@ -1,0 +1,7 @@
+[tool.pyright]
+extraPaths = ["src", "scripts", "."]
+include = ["src", "scripts", "app", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "scripts", "."]

@@ -1,5 +1,3 @@
-import pytest
-
 from hybrid import agreement_violations, hybrid_score
 
 

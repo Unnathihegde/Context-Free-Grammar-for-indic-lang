@@ -2,7 +2,6 @@
 
 import subprocess
 import sys
-from pathlib import Path
 
 from scripts.prepare_corpus import is_mostly_telugu, process_corpus
 

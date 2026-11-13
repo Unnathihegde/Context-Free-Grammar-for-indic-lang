@@ -145,8 +145,8 @@ def _bootstrap_summary(scored, seed=SEED):
     for _ in range(BOOTSTRAP_RESAMPLES):
         sample = [row for _ in sentence_groups
                   for row in generator.choice(sentence_groups)]
-        for key in samples:
-            samples[key].append(mean(sample, key))
+        for key, sample_list in samples.items():
+            sample_list.append(mean(sample, key))
         differences.append(samples["hybrid"][-1] - samples["b1"][-1])
 
     def interval(values):
