@@ -187,12 +187,24 @@ def check_case_after_noun(tokens: List[Dict[str, Any]]) -> Dict[str, Any]:
         }
 
 
+def is_gender_compatible(g1: str, g2: str) -> bool:
+    """Check if two gender annotations are compatible. Empty matches any."""
+    if not g1 or not g2:
+        return True
+    g1_set = set(g1.split("/"))
+    g2_set = set(g2.split("/"))
+    return bool(g1_set.intersection(g2_set))
+
+
 def check_subject_verb_agreement(
     tokens: List[Dict[str, Any]],
     agreement_rows: Optional[List[Dict[str, str]]] = None,
     known_non_verbs: Optional[set] = None,
 ) -> Dict[str, Any]:
-    """Check subject-verb agreement against the unvalidated agreement table."""
+    """Check subject-verb agreement against the unvalidated agreement table.
+
+    Compares person, number, and gender (where annotated, e.g. 3sg masculine vs feminine/neuter).
+    """
     badge = "EXPERIMENTAL, UNVALIDATED"
 
     if agreement_rows is None:
@@ -259,34 +271,56 @@ def check_subject_verb_agreement(
                 "badge": badge,
             }
 
-        # Check if any matching ending matches the subject's person/number
-        subj_classes = {(e.get("person"), e.get("number")) for e in subj_entries}
-        
         # Look up ending entries for matched ending forms
         matched_ending_entries = [
             e for e in ending_rows if clean_for_matching(e["form"]) in [clean_for_matching(m) for m in matched_endings]
         ]
-        ending_classes = {(e.get("person"), e.get("number")) for e in matched_ending_entries}
 
-        if subj_classes.intersection(ending_classes):
-            best_match = matched_endings[0]
-            common_class = next(iter(subj_classes.intersection(ending_classes)))
+        # Check compatibility across person, number, and gender
+        matching_pairs = []
+        for se in subj_entries:
+            for ve in matched_ending_entries:
+                p_match = (se.get("person") == ve.get("person"))
+                n_match = (se.get("number") == ve.get("number"))
+                g_match = is_gender_compatible(se.get("gender", ""), ve.get("gender", ""))
+                if p_match and n_match and g_match:
+                    matching_pairs.append((se, ve))
+
+        best_match = matched_endings[0]
+        if matching_pairs:
+            se, ve = matching_pairs[0]
+            g_str = f", gender: {se.get('gender')}" if se.get("gender") else ""
+            desc = f"{se.get('person')}/{se.get('number')}{g_str}"
             return {
                 "check_id": "subject_verb_agreement",
                 "name": "Subject-verb agreement",
                 "status": "consistent",
-                "explanation": f"Subject '{subj_text}' agrees with verb '{verb_text}' (ending -{best_match}, {common_class[0]}/{common_class[1]}).",
+                "explanation": f"Subject '{subj_text}' agrees with verb '{verb_text}' (ending -{best_match}, {desc}).",
                 "badge": badge,
             }
         else:
-            best_match = matched_endings[0]
-            subj_desc = "/".join(f"{p} {n}" for p, n in subj_classes if p and n)
-            verb_desc = "/".join(f"{p} {n}" for p, n in ending_classes if p and n)
+            # Check if person/number matched but gender failed
+            pn_matched = any(
+                se.get("person") == ve.get("person") and se.get("number") == ve.get("number")
+                for se in subj_entries for ve in matched_ending_entries
+            )
+            subj_desc = "/".join(
+                f"{e.get('person')} {e.get('number')}" + (f" ({e.get('gender')})" if e.get("gender") else "")
+                for e in subj_entries
+            )
+            verb_desc = "/".join(
+                f"{e.get('person')} {e.get('number')}" + (f" ({e.get('gender')})" if e.get("gender") else "")
+                for e in matched_ending_entries
+            )
+            if pn_matched:
+                reason = "due to gender mismatch"
+            else:
+                reason = "person/number mismatch"
             return {
                 "check_id": "subject_verb_agreement",
                 "name": "Subject-verb agreement",
                 "status": "not consistent",
-                "explanation": f"Subject '{subj_text}' ({subj_desc}) does not match verb ending -{best_match} ({verb_desc}).",
+                "explanation": f"Subject '{subj_text}' ({subj_desc}) does not match verb ending -{best_match} ({verb_desc}) [{reason}].",
                 "badge": badge,
             }
 
@@ -299,44 +333,58 @@ def check_subject_verb_agreement(
     }
 
 
-def check_unknown_tokens(
+_TRAIN_TREEBANK_VOCAB = None
+
+
+def load_train_treebank_vocab(path: str = "data/te_train.conllu") -> set:
+    """Build vocabulary set of words seen in data/te_train.conllu (excluding PUNCT)."""
+    global _TRAIN_TREEBANK_VOCAB
+    if _TRAIN_TREEBANK_VOCAB is not None:
+        return _TRAIN_TREEBANK_VOCAB
+    vocab = set()
+    if os.path.exists(path):
+        try:
+            from src.grammar_learn import read_conllu
+            for s in read_conllu(path):
+                for t in s:
+                    if t.get("pos") != "PUNCT":
+                        vocab.add(clean_for_matching(t["word"]))
+        except Exception:
+            pass
+    _TRAIN_TREEBANK_VOCAB = vocab
+    return vocab
+
+
+def check_unseen_training_tokens(
     tokens: List[Dict[str, Any]],
-    known_vocab: Optional[set] = None,
+    train_vocab: Optional[set] = None,
 ) -> Dict[str, Any]:
-    """Check for out-of-vocabulary or unclassified tokens."""
-    if not tokens:
-        return {
-            "check_id": "unknown_tokens",
-            "name": "Vocabulary & token status",
-            "status": "not applicable",
-            "explanation": "No tokens to check.",
-            "badge": None,
-        }
+    """Check for words not seen in the training treebank (data/te_train.conllu)."""
+    if train_vocab is None:
+        train_vocab = load_train_treebank_vocab()
 
-    unknowns = []
+    unseen = []
     for t in tokens:
-        if t.get("upos") in {"X", "UNKNOWN"}:
-            unknowns.append(t.get("text", ""))
-        elif known_vocab is not None:
+        if t.get("upos") != "PUNCT":
             clean_w = clean_for_matching(t.get("text", ""))
-            if clean_w not in known_vocab and t.get("upos") != "PUNCT":
-                unknowns.append(t.get("text", ""))
+            if clean_w not in train_vocab:
+                unseen.append(t.get("text", ""))
 
-    if not unknowns:
+    if not unseen:
         return {
-            "check_id": "unknown_tokens",
-            "name": "Vocabulary & token status",
-            "status": "consistent",
-            "explanation": "All tokens recognized and assigned standard universal categories.",
+            "check_id": "unseen_training_tokens",
+            "name": "Words not seen in the training treebank",
+            "status": "none unseen",
+            "explanation": "All words in this sentence were observed in the UD Telugu-MTG training treebank.",
             "badge": None,
         }
     else:
-        unique_unknowns = list(dict.fromkeys(unknowns))
+        unique_unseen = list(dict.fromkeys(unseen))
         return {
-            "check_id": "unknown_tokens",
-            "name": "Vocabulary & token status",
-            "status": "not applicable",
-            "explanation": f"Tokens not in learned treebank vocabulary: {', '.join(unique_unknowns)} (labeled UNKNOWN; open-class or unobserved word).",
+            "check_id": "unseen_training_tokens",
+            "name": "Words not seen in the training treebank",
+            "status": "some unseen",
+            "explanation": f"Words not seen in training treebank (UNKNOWN to the model): {', '.join(unique_unseen)}.",
             "badge": None,
         }
 
@@ -344,7 +392,7 @@ def check_unknown_tokens(
 def run_all_checks(
     tokens: List[Dict[str, Any]],
     agreement_rows: Optional[List[Dict[str, str]]] = None,
-    known_vocab: Optional[set] = None,
+    train_vocab: Optional[set] = None,
 ) -> List[Dict[str, Any]]:
     """Run all grammatical pattern checks on the sentence tokens."""
     return [
@@ -353,5 +401,5 @@ def run_all_checks(
         check_amod_before_noun(tokens),
         check_case_after_noun(tokens),
         check_subject_verb_agreement(tokens, agreement_rows=agreement_rows),
-        check_unknown_tokens(tokens, known_vocab=known_vocab),
+        check_unseen_training_tokens(tokens, train_vocab=train_vocab),
     ]

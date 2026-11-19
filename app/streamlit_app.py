@@ -17,7 +17,13 @@ import streamlit.components.v1 as components
 # Add project root to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.agreement import clean_for_matching, ending_forms, get_known_non_verbs, load_agreement_table
+from src.agreement import (
+    clean_for_matching,
+    ending_forms,
+    get_known_non_verbs,
+    get_possible_verb_suffix,
+    load_agreement_table,
+)
 from src.analyzer import (
     ModelNotInstalledError,
     analyze_sentence,
@@ -156,16 +162,17 @@ def get_example_sentences() -> List[str]:
 
 
 @st.cache_data
-def load_treebank_lookup() -> Dict[str, List[Dict[str, Any]]]:
-    """Load all treebank sentences mapped by normalized text for gold comparison."""
-    lookup: Dict[str, List[Dict[str, Any]]] = {}
-    for fn in ["data/te_train.conllu", "data/te_dev.conllu", "data/te_test.conllu"]:
+def load_treebank_lookup() -> Dict[str, Tuple[str, List[Dict[str, Any]]]]:
+    """Load all treebank sentences mapped by normalized text with split label."""
+    lookup: Dict[str, Tuple[str, List[Dict[str, Any]]]] = {}
+    splits = [("train", "data/te_train.conllu"), ("dev", "data/te_dev.conllu"), ("test", "data/te_test.conllu")]
+    for split_name, fn in splits:
         if os.path.exists(fn):
             try:
                 for s in read_conllu(fn):
                     norm_text = unicodedata.normalize("NFC", " ".join(t["word"] for t in s)).strip()
                     if norm_text not in lookup:
-                        lookup[norm_text] = s
+                        lookup[norm_text] = (split_name, s)
             except Exception:
                 pass
     return lookup
@@ -182,19 +189,16 @@ def clean_input_text(raw_text: str) -> Tuple[str, bool]:
 def compute_possible_suffixes(
     tokens: List[Dict[str, Any]], agreement_table: List[Dict[str, str]], known_non_verbs: set
 ) -> List[str]:
-    """Compute possible suffix column: only fires on VERB tokens with valid agreement endings."""
-    verb_ending_rows = [r for r in agreement_table if r.get("type") == "verb_ending"]
-    suffixes = []
-    for t in tokens:
-        if t.get("upos") == "VERB":
-            matched = ending_forms(t.get("text", ""), verb_ending_rows, known_non_verbs)
-            if matched:
-                suffixes.append(f"-{matched[0]}")
-            else:
-                suffixes.append("-")
-        else:
-            suffixes.append("-")
-    return suffixes
+    """Compute possible suffix column: uses canonical get_possible_verb_suffix from src.agreement."""
+    return [
+        get_possible_verb_suffix(
+            t.get("text", ""),
+            upos=t.get("upos"),
+            agreement_rows=agreement_table,
+            known_non_verbs=known_non_verbs,
+        )
+        for t in tokens
+    ]
 
 
 # ==============================================================================
@@ -240,7 +244,7 @@ if os.path.exists(eval_csv_path):
                 st.metric("Test LAS (Labeled)", f"{float(r['las']) * 100:.1f}%")
             st.caption(
                 "Measured on held-out treebank sentences with gold tokenization. "
-                "Accuracy on other Telugu text is not measured and is likely lower."
+                "This is not the accuracy for the sentence you typed."
             )
     except Exception:
         pass
@@ -497,6 +501,10 @@ if res and "error" not in res:
                 status_badge = "✅ Consistent"
             elif status == "not consistent":
                 status_badge = "⚠️ Not consistent"
+            elif status == "none unseen":
+                status_badge = "✅ None unseen"
+            elif status == "some unseen":
+                status_badge = "ℹ️ Some unseen"
             else:
                 status_badge = "➖ Not applicable"
 
@@ -522,6 +530,12 @@ if res and "error" not in res:
             use_container_width=True,
         )
 
+        with st.expander("ℹ️ Notes on Pattern Checks"):
+            st.markdown(
+                "- **Subject-verb agreement**: Compares person, number, and gender (where specified in the table, e.g. 3sg masculine -ాడు vs feminine/neuter -ింది). Abstains on non-pronoun subjects.\n"
+                "- **Words not seen in training treebank**: Identifies tokens not found in data/te_train.conllu (labeled UNKNOWN to the model; not an error)."
+            )
+
     # --------------------------------------------------------------------------
     # TAB 5: Compare with Treebank Gold Annotations
     # --------------------------------------------------------------------------
@@ -531,8 +545,10 @@ if res and "error" not in res:
         norm_input = unicodedata.normalize("NFC", cleaned_text).strip()
 
         if norm_input in treebank_lookup:
-            gold_sent = treebank_lookup[norm_input]
-            st.success("✨ Exact match found in the Universal Dependencies Telugu treebank!")
+            split_name, gold_sent = treebank_lookup[norm_input]
+            st.success(f"✨ Exact match found in the Universal Dependencies Telugu treebank ({split_name} split)!")
+            if split_name == "train":
+                st.warning("⚠️ This sentence was in the model's training data, so these scores do not measure accuracy.")
 
             gold_rows = []
             upos_matches = 0

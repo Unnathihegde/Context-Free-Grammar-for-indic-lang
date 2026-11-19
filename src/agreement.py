@@ -108,6 +108,26 @@ def ending_forms(word, ending_rows, known_non_verbs=None):
     return sorted(set(valid_forms), key=len, reverse=True)
 
 
+def get_possible_verb_suffix(
+    word,
+    upos="VERB",
+    agreement_rows=None,
+    known_non_verbs=None,
+):
+    """Canonical helper returning matching verb ending from agreement_table.csv if upos=='VERB', else '-'."""
+    if upos is not None and upos != "VERB":
+        return "-"
+
+    if agreement_rows is None:
+        agreement_rows = load_agreement_table()
+
+    verb_ending_rows = [r for r in agreement_rows if r.get("type") == "verb_ending"]
+    matched = ending_forms(word, verb_ending_rows, known_non_verbs)
+    if matched:
+        return f"-{matched[0]}"
+    return "-"
+
+
 def fold_assignments(sentence_count, k=5, seed=0):
     indices = list(range(sentence_count))
     random.Random(seed).shuffle(indices)
