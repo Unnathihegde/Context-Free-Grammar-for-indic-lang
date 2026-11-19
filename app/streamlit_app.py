@@ -11,7 +11,9 @@ from nltk.parse import ViterbiParser
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from agreement import TABLE_PATH, ending_forms, load_agreement_table  # noqa: E402
+from agreement import (  # noqa: E402
+    TABLE_PATH, clean_for_matching, ending_forms, get_known_non_verbs, load_agreement_table,
+)
 from grammar_learn import induce, load_all, parse_prob, pos_seq, prepare  # noqa: E402
 from hybrid import agreement_check, hybrid_score  # noqa: E402
 from ngram_lm import train_from_corpus  # noqa: E402
@@ -46,14 +48,17 @@ def sentence_label(index, trees):
     return f"{index + 1}: {words[:120]}"
 
 
-def get_token_statuses(sentence, table_rows, lm=None):
+def get_token_statuses(sentence, table_rows, lm=None, known_non_verbs=None):
     """Analyze each word for agreement-table and language-model recognition.
 
     Unknown words are labeled UNKNOWN, reflecting standard vocabulary and rule
     coverage limits, not operational errors.
     """
+    if known_non_verbs is None:
+        known_non_verbs = get_known_non_verbs()
+
     pronouns = {
-        unicodedata.normalize("NFC", row["form"])
+        clean_for_matching(row["form"])
         for row in table_rows
         if row.get("type") == "pronoun"
     }
@@ -62,11 +67,12 @@ def get_token_statuses(sentence, table_rows, lm=None):
     tokens = unicodedata.normalize("NFC", sentence).split()
     records = []
     for token in tokens:
-        if token in pronouns:
+        clean_t = clean_for_matching(token)
+        if clean_t in pronouns:
             agr_status = "KNOWN"
             agr_detail = "pronoun"
         else:
-            forms = ending_forms(token, ending_rows)
+            forms = ending_forms(token, ending_rows, known_non_verbs=known_non_verbs)
             if forms:
                 agr_status = "KNOWN"
                 agr_detail = f"verb ending (-{forms[0]})"
@@ -76,7 +82,7 @@ def get_token_statuses(sentence, table_rows, lm=None):
 
         record = {
             "Token": token,
-            "Agreement Table": agr_status,
+            "Covered by agreement table": agr_status,
             "Agreement Detail": agr_detail,
         }
         if lm is not None:
@@ -118,7 +124,7 @@ lm, lm_message = lm_backend()
 if user_sentence.strip():
     token_records = get_token_statuses(user_sentence, table_rows, lm=lm)
     st.subheader("Token Analysis")
-    st.caption("Words not recognized in tables are labeled UNKNOWN, not errors.")
+    st.caption("UNKNOWN means the word is not in the pronoun/verb-ending table. It does not mean the word is wrong.")
     st.dataframe(pd.DataFrame(token_records), hide_index=True)
 
     check = agreement_check(user_sentence, table_rows)
