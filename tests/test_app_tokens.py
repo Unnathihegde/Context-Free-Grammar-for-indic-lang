@@ -2,7 +2,7 @@
 
 from streamlit.testing.v1 import AppTest
 
-from app.streamlit_app import get_token_statuses
+from app.legacy_app import get_token_statuses
 from ngram_lm import TrigramLanguageModel
 
 
@@ -47,7 +47,7 @@ def test_get_token_statuses_with_lm():
 
 
 def test_apptest_renders_token_status_table():
-    at = AppTest.from_file("app/streamlit_app.py")
+    at = AppTest.from_file("app/legacy_app.py")
     at.run(timeout=30)
     assert not at.exception
 

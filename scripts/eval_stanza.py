@@ -114,6 +114,7 @@ def main():
     }
 
     results = []
+    detail_records = []
     today = str(date.today())
     version = getattr(stanza, "__version__", "unknown")
 
@@ -125,19 +126,37 @@ def main():
         print(f"UAS: {res['uas']:.4f}")
         print(f"LAS: {res['las']:.4f}")
 
-        # Top 5 most frequent tags
+        # Top tags by frequency
         print(f"\nTop 5 tags by frequency in {split_name}:")
-        for tag, count in res["tag_counts"].most_common(5):
+        for tag, count in res["tag_counts"].most_common():
             corr = res["tag_correct"][tag]
             acc = corr / count if count else 0.0
-            print(f"  {tag:<8}: {acc:.4f} ({corr}/{count})")
+            detail_records.append({
+                "split": split_name,
+                "category": "UPOS Tag",
+                "item": tag,
+                "frequency": count,
+                "correct": corr,
+                "accuracy": round(acc, 4),
+            })
+            if count in [c for _, c in res["tag_counts"].most_common(5)]:
+                print(f"  {tag:<8}: {acc:.4f} ({corr}/{count})")
 
-        # Top 3 most frequent relations
+        # Top relations by frequency
         print(f"\nTop 3 relations by frequency in {split_name} (LAS):")
-        for rel, count in res["rel_counts"].most_common(3):
+        for rel, count in res["rel_counts"].most_common():
             corr = res["rel_correct_las"][rel]
             las_rel = corr / count if count else 0.0
-            print(f"  {rel:<12}: {las_rel:.4f} ({corr}/{count})")
+            detail_records.append({
+                "split": split_name,
+                "category": "Dependency Relation",
+                "item": rel,
+                "frequency": count,
+                "correct": corr,
+                "accuracy": round(las_rel, 4),
+            })
+            if count in [c for _, c in res["rel_counts"].most_common(3)]:
+                print(f"  {rel:<12}: {las_rel:.4f} ({corr}/{count})")
 
         results.append({
             "split": split_name,
@@ -156,6 +175,11 @@ def main():
     df.to_csv(out_csv, index=False)
     print(f"\nSaved evaluation results to {out_csv}:")
     print(df.to_string(index=False))
+
+    details_csv = "results/stanza_eval_details.csv"
+    df_details = pd.DataFrame(detail_records)
+    df_details.to_csv(details_csv, index=False)
+    print(f"\nSaved detailed evaluation metrics to {details_csv}.")
 
 
 if __name__ == "__main__":

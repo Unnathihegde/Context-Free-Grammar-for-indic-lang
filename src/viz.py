@@ -12,7 +12,7 @@ import svgling
 from src.glossary import get_upos_color, get_upos_name
 
 
-TELUGU_FONT_FAMILY = "'Noto Sans Telugu', 'Gautami', 'Mandali', sans-serif"
+TELUGU_FONT_FAMILY = "'Noto Sans Telugu', 'Nirmala UI', 'Gautami', sans-serif"
 
 
 def format_words_and_arcs_for_displacy(tokens: List[Dict[str, Any]]) -> Dict[str, Any]:
