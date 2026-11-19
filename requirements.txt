@@ -3,6 +3,7 @@ pandas
 scikit-learn
 scipy
 pyyaml
-streamlit
 pytest
 matplotlib
+fastapi>=0.115.0
+uvicorn>=0.30.0
