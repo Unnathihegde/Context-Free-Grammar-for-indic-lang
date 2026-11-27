@@ -26,6 +26,39 @@ def make_pairs(sent):
         yield "verb_first", good, [good[-1]] + good[:-1]
 
 
+def make_word_pairs(sent):
+    """Yield (kind, good_pos, bad_pos, good_words, bad_words) for each perturbation."""
+    good_pos, n = pos_seq(sent), len(sent)
+    good_words = [t["word"] for t in sent]
+    for i, t in enumerate(sent):
+        h = t["head"]
+        if h == 0:
+            continue
+        hi = h - 1
+        if t["rel"] in ("det", "amod") and hi == i + 1:
+            bad_pos = good_pos[:]
+            bad_pos[i], bad_pos[hi] = bad_pos[hi], bad_pos[i]
+            bad_words = good_words[:]
+            bad_words[i], bad_words[hi] = bad_words[hi], bad_words[i]
+            kind = "det_after" if t["rel"] == "det" else "amod_after"
+            yield kind, good_pos, bad_pos, good_words, bad_words
+        if t["rel"] == "case" and hi == i - 1:
+            bad_pos = good_pos[:]
+            bad_pos[i], bad_pos[hi] = bad_pos[hi], bad_pos[i]
+            bad_words = good_words[:]
+            bad_words[i], bad_words[hi] = bad_words[hi], bad_words[i]
+            yield "case_before", good_pos, bad_pos, good_words, bad_words
+    roots = [i for i, t in enumerate(sent) if t["head"] == 0]
+    if n >= 3 and roots and roots[0] == n - 1 and sent[-1]["pos"] == "VERB":
+        yield (
+            "verb_first",
+            good_pos,
+            [good_pos[-1]] + good_pos[:-1],
+            good_words,
+            [good_words[-1]] + good_words[:-1],
+        )
+
+
 def run(k=5, seed=0, max_len=20):
     trees, _ = prepare(load_all())
     idx = list(range(len(trees)))

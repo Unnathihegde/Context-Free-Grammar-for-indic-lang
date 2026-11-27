@@ -52,3 +52,29 @@ def test_spelling_variants_collapse_and_honorific_risk_note():
     # Check the honorific possible pair
     pair_aru = next(c for c in candidates if c["bad_ending"] == "ారు")
     assert pair_aru["risk_note"] == "honorific_possible"
+
+
+def test_get_possible_verb_suffix():
+    from src.agreement import get_possible_verb_suffix, load_agreement_table, get_known_non_verbs
+
+    table = load_agreement_table()
+    knv = get_known_non_verbs()
+
+    expected_suffixes = {
+        "వెళ్ళాడు": "-ాడు",
+        "వెళ్తాను": "-ాను",
+        "చదివాను": "-ాను",
+        "ఉన్నాడు": "-ాడు",
+        "చేశాడు": "-ాడు",
+        "తింటాం": "-ాం",
+        "వస్తారు": "-ారు",
+        "వచ్చింది": "-ింది",
+    }
+
+    for verb, expected in expected_suffixes.items():
+        res = get_possible_verb_suffix(verb, upos="VERB", agreement_rows=table, known_non_verbs=knv)
+        assert res == expected, f"Failed for {verb}: got {res}, expected {expected}"
+
+    # Non-VERB tokens must return "-"
+    assert get_possible_verb_suffix("రాము", upos="PROPN", agreement_rows=table, known_non_verbs=knv) == "-"
+    assert get_possible_verb_suffix("పుస్తకం", upos="NOUN", agreement_rows=table, known_non_verbs=knv) == "-"

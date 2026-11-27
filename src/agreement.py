@@ -6,7 +6,10 @@ import unicodedata
 from collections import defaultdict
 from pathlib import Path
 
-from grammar_learn import load_all
+try:
+    from src.grammar_learn import load_all
+except ModuleNotFoundError:
+    from grammar_learn import load_all
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,9 +21,47 @@ PAIR_FIELDS = [
     "validator_notes",
 ]
 
+ZERO_WIDTH_CHARS = str.maketrans("", "", "\u200b\u200c\u200d\ufeff")
+_KNOWN_NON_VERBS = None
+
+
+def strip_zero_width(text):
+    """Remove zero-width formatting characters (ZWSP, ZWNJ, ZWJ, BOM)."""
+    return text.translate(ZERO_WIDTH_CHARS)
+
+
+def clean_for_matching(text):
+    """Normalize Unicode (NFC) and strip zero-width characters for robust matching."""
+    return unicodedata.normalize("NFC", strip_zero_width(text))
+
 
 def normalized(text):
     return unicodedata.normalize("NFC", text)
+
+
+def load_known_non_verbs(sentences=None):
+    """Return words seen in the treebank as NOUN, PROPN, PRON, or ADJ, but never as VERB."""
+    if sentences is None:
+        sentences = load_all()
+    non_verbs = set()
+    verbs = set()
+    for s in sentences:
+        for t in s:
+            w = clean_for_matching(t["word"])
+            pos = t["pos"]
+            if pos in {"NOUN", "PROPN", "PRON", "ADJ"}:
+                non_verbs.add(w)
+            if pos == "VERB":
+                verbs.add(w)
+    return non_verbs - verbs
+
+
+def get_known_non_verbs(sentences=None):
+    """Cached loader for treebank words that are known non-verbs."""
+    global _KNOWN_NON_VERBS
+    if _KNOWN_NON_VERBS is None:
+        _KNOWN_NON_VERBS = load_known_non_verbs(sentences)
+    return _KNOWN_NON_VERBS
 
 
 def load_agreement_table(path=TABLE_PATH):
@@ -42,10 +83,49 @@ def nsubj_verb_pairs(sentences):
                 yield sentence_index, sentence, subject, verb
 
 
-def ending_forms(word, ending_rows):
-    """Return every listed ending form matching a word, longest first."""
-    forms = {row["form"] for row in ending_rows if normalized(word).endswith(row["form"])}
-    return sorted(forms, key=len, reverse=True)
+def ending_forms(word, ending_rows, known_non_verbs=None):
+    """Return every listed ending form matching a word, longest first.
+
+    A match is accepted only if:
+    (a) the remaining stem has at least 2 Telugu characters/syllables, AND
+    (b) the full word is not a known NOUN, PROPN, PRON, or ADJ in the treebank
+        (never seen as VERB).
+    """
+    clean_word = clean_for_matching(word)
+    if known_non_verbs is None:
+        known_non_verbs = get_known_non_verbs()
+    if known_non_verbs and clean_word in known_non_verbs:
+        return []
+
+    valid_forms = []
+    for row in ending_rows:
+        ending = clean_for_matching(row["form"])
+        if clean_word.endswith(ending):
+            stem = clean_word[:-len(ending)]
+            telugu_chars = [c for c in stem if "\u0c00" <= c <= "\u0c7f"]
+            if len(telugu_chars) >= 2:
+                valid_forms.append(row["form"])
+    return sorted(set(valid_forms), key=len, reverse=True)
+
+
+def get_possible_verb_suffix(
+    word,
+    upos="VERB",
+    agreement_rows=None,
+    known_non_verbs=None,
+):
+    """Canonical helper returning matching verb ending from agreement_table.csv if upos=='VERB', else '-'."""
+    if upos is not None and upos != "VERB":
+        return "-"
+
+    if agreement_rows is None:
+        agreement_rows = load_agreement_table()
+
+    verb_ending_rows = [r for r in agreement_rows if r.get("type") == "verb_ending"]
+    matched = ending_forms(word, verb_ending_rows, known_non_verbs)
+    if matched:
+        return f"-{matched[0]}"
+    return "-"
 
 
 def fold_assignments(sentence_count, k=5, seed=0):
@@ -60,20 +140,23 @@ def _sentence_with_replacement(sentence, verb_id, replacement):
     )
 
 
-def build_candidates(sentences, rows, k=5, seed=0):
+def build_candidates(sentences, rows, k=5, seed=0, known_non_verbs=None):
     """Return count summary and candidate rows; every output remains unvalidated.
 
     Spelling variants of the same ending (e.g. -ాం and -ాము) produce one candidate
     per (good sentence, subject, bad person/number class), retaining all spellings
     in ending_variants. Suffix -ారు carries risk_note='honorific_possible'.
     """
+    if known_non_verbs is None:
+        known_non_verbs = get_known_non_verbs(sentences)
+
     pronouns = defaultdict(list)
     endings = defaultdict(list)
     for row in rows:
         if row["type"] == "pronoun":
-            pronouns[row["form"]].append(row)
+            pronouns[clean_for_matching(row["form"])].append(row)
         elif row["type"] == "verb_ending":
-            endings[row["form"]].append(row)
+            endings[clean_for_matching(row["form"])].append(row)
 
     # Group verb endings into grammatical classes (collapsing spelling variants)
     classes = []
@@ -94,10 +177,11 @@ def build_candidates(sentences, rows, k=5, seed=0):
     recognized_endings = 0
     candidates = []
     fold_by_sentence = fold_assignments(len(sentences), k=k, seed=seed)
+    ending_rows_all = [row for group in endings.values() for row in group]
 
     for sentence_index, sentence, subject, verb in occurrences:
-        subject_rows = pronouns.get(normalized(subject["word"]), [])
-        matched_forms = ending_forms(verb["word"], [row for group in endings.values() for row in group])
+        subject_rows = pronouns.get(clean_for_matching(subject["word"]), [])
+        matched_forms = ending_forms(verb["word"], ending_rows_all, known_non_verbs=known_non_verbs)
         if subject_rows:
             recognized_pronouns += 1
         if matched_forms:
@@ -110,7 +194,7 @@ def build_candidates(sentences, rows, k=5, seed=0):
             good_people = {row["person"] for row in endings[good_ending]}
             if not subject_people.intersection(good_people):
                 continue
-            stem = normalized(verb["word"])[:-len(good_ending)]
+            stem = clean_for_matching(verb["word"])[:-len(good_ending)]
             for c in classes:
                 forms = c["forms"]
                 if good_ending in forms:
