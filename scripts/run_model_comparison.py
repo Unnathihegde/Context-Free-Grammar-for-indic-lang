@@ -150,7 +150,7 @@ def evaluate_word_order_models(
                     pll_s = winner_score(g_pll, b_pll)
                     model_outcomes[f"PLL ({m_name})"][kind].append((i, pll_s))
 
-        print(f"  Completed fold {fold_idx + 1}/{K_FOLDS} ({time.time() - t0:.1f}s)")
+        print(f"  Completed fold {fold_idx + 1}/{K_FOLDS} ({time.time() - t0:.1f}s)", flush=True)
 
     # Summarize all kinds + ALL
     kinds = sorted(model_outcomes["POS-bigram (POS)"].keys())
@@ -178,6 +178,8 @@ def evaluate_word_order_models(
             note = "reference baseline"
             if model_label != "POS-bigram (POS)":
                 note = f"paired bootstrap p vs POS-bigram = {stats['p_val']:.4f}"
+                if model_label.startswith("PLL"):
+                    note += "; pretrained MLM may have seen treebank sentences (potential pretraining leakage)"
 
             rows.append({
                 "task": f"word_order:{kind}",
