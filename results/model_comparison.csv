@@ -1,14 +1,14 @@
 task,model,metric,value,n,ci_low,ci_high,notes
-upos_acc:dev,Stanza (1.15.1),upos_acc,0.9486,662,,,"gold tokenization, 131 sentences"
+upos_acc:dev,Stanza (1.15.1),upos_acc,0.9486,662,0.9304,0.9653,"gold tokenization, 131 sentences"
 uas:dev,Stanza (1.15.1),uas,0.923,662,,,"gold tokenization, 131 sentences"
 las:dev,Stanza (1.15.1),las,0.8369,662,,,"gold tokenization, 131 sentences"
-upos_acc:test,Stanza (1.15.1),upos_acc,0.9417,721,,,"gold tokenization, 146 sentences"
+upos_acc:test,Stanza (1.15.1),upos_acc,0.9417,721,0.9236,0.9574,"gold tokenization, 146 sentences"
 uas:test,Stanza (1.15.1),uas,0.9196,721,,,"gold tokenization, 146 sentences"
 las:test,Stanza (1.15.1),las,0.8183,721,,,"gold tokenization, 146 sentences"
-upos_acc:dev,xlm-roberta-base,upos_acc,0.9396,662,,,"gold tokenization, train_time=1589.3s (CPU (12 cores))"
-upos_acc:test,xlm-roberta-base,upos_acc,0.9473,721,,,"gold tokenization, train_time=1589.3s (CPU (12 cores))"
-upos_acc:dev,google/muril-base-cased,upos_acc,0.9169,662,,,"gold tokenization, train_time=1547.0s (CPU (12 cores))"
-upos_acc:test,google/muril-base-cased,upos_acc,0.9209,721,,,"gold tokenization, train_time=1547.0s (CPU (12 cores))"
+upos_acc:dev,xlm-roberta-base,upos_acc,0.9396,662,0.9212,0.9567,"gold tokenization, train_time=1589.3s (CPU (12 cores)); paired bootstrap p vs Stanza = 0.2637"
+upos_acc:test,xlm-roberta-base,upos_acc,0.9473,721,0.9287,0.9643,"gold tokenization, train_time=1589.3s (CPU (12 cores)); paired bootstrap p vs Stanza = 0.5235"
+upos_acc:dev,google/muril-base-cased,upos_acc,0.9169,662,0.8966,0.9373,"gold tokenization, train_time=1547.0s (CPU (12 cores))"
+upos_acc:test,google/muril-base-cased,upos_acc,0.9209,721,0.8962,0.9431,"gold tokenization, train_time=1547.0s (CPU (12 cores))"
 word_order:amod_after,POS-bigram (POS),pair_ranking_acc,0.7754,69,0.6812,0.8768,reference baseline
 word_order:amod_after,Learned PCFG (POS),pair_ranking_acc,0.6957,69,0.6014,0.7899,paired bootstrap p vs POS-bigram = 0.0180
 word_order:amod_after,PLL (xlm-roberta-base),pair_ranking_acc,0.8986,69,0.8116,0.9565,paired bootstrap p vs POS-bigram = 0.0519; pretrained MLM may have seen treebank sentences (potential pretraining leakage)
