@@ -373,18 +373,25 @@ def check_unseen_training_tokens(
     if not unseen:
         return {
             "check_id": "unseen_training_tokens",
-            "name": "Words not seen in the training treebank",
-            "status": "none unseen",
-            "explanation": "All words in this sentence were observed in the UD Telugu-MTG training treebank.",
+            "name": "Words not in the training treebank vocabulary",
+            "status": "none missing",
+            "explanation": (
+                "All words in this sentence appear in the 1,051 training sentences "
+                "of the UD Telugu-MTG treebank."
+            ),
             "badge": None,
         }
     else:
         unique_unseen = list(dict.fromkeys(unseen))
         return {
             "check_id": "unseen_training_tokens",
-            "name": "Words not seen in the training treebank",
-            "status": "some unseen",
-            "explanation": f"Words not seen in training treebank (UNKNOWN to the model): {', '.join(unique_unseen)}.",
+            "name": "Words not in the training treebank vocabulary",
+            "status": "some missing",
+            "explanation": (
+                f"Words not in the 1,051 training sentences (UNKNOWN to the training lexicon; "
+                f"this only means the word does not occur in the training split, not that the parser failed): "
+                f"{', '.join(unique_unseen)}."
+            ),
             "badge": None,
         }
 

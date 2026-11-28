@@ -344,3 +344,14 @@ def test_real_server_analysis_slow():
         verb_tok = [t for t in data["tokens"] if t["word"] == "వెళ్ళాడు"][0]
         assert verb_tok["possible_suffix"] == "-ాడు"
         assert data["summary"]["word_order"] in ["S-V", "S-O-V", "N/A"]
+        # Check that PCFG productions have real non-null probabilities
+        assert data["tree"]["pcfg_covered"] is True
+        assert len(data["tree"]["productions"]) > 0
+        assert all(
+            isinstance(p["prob"], float) and 0.0 < p["prob"] <= 1.0
+            for p in data["tree"]["productions"]
+        )
+        # Check neutral training vocabulary check wording
+        vocab_chk = [c for c in data["checks"] if c["key"] == "unseen_training_tokens"][0]
+        assert vocab_chk["label"] == "Words not in the training treebank vocabulary"
+        assert vocab_chk["status"] == "some missing"

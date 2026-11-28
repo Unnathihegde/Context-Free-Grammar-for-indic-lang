@@ -681,6 +681,92 @@ table.data-table tbody tr:hover {
   color: var(--muted);
 }
 
+/* SVG containers & controls */
+.svg-controls {
+  display: flex;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+
+.svg-scroll-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  padding: var(--sp-3);
+}
+
+.legend-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--sp-2) var(--sp-4);
+}
+
+.legend-item {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: baseline;
+  font-size: 13px;
+}
+
+.coverage-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  font-size: 13px;
+}
+
+.muted-note {
+  margin: 0 0 var(--sp-3) 0;
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 72ch;
+}
+
+.bracket-details {
+  margin-top: var(--sp-3);
+  font-size: 13px;
+}
+
+.bracket-details summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.bracket-pre {
+  margin: var(--sp-2) 0 0 0;
+  padding: var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  font-size: 12px;
+}
+
+.cell-diff {
+  background: var(--st-inconsistent-bg);
+  color: var(--st-inconsistent-fg);
+  font-weight: 500;
+}
+
+.diff-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--bg);
+  border: 1px solid var(--st-inconsistent-fg);
+  font-size: 11px;
+  font-weight: 600;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .analyze-layout {

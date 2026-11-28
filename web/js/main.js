@@ -12,10 +12,14 @@ import { navigateTo, startRouter } from "./router.js";
 import {
   el,
   formatAnalysisAsText,
+  renderChecksTab,
+  renderDependencyTab,
   renderEmptyState,
   renderErrorBox,
   renderReliabilityStrip,
   renderSummarySection,
+  renderTreeTab,
+  renderTreebankTab,
   renderWordsTab,
 } from "./ui.js";
 
@@ -283,16 +287,12 @@ function buildTabBar(activeTab) {
 }
 
 function buildActiveTabPanel(analysis, activeTab) {
-  if (activeTab === "words") {
-    return renderWordsTab(analysis);
-  }
-  return el("div", { className: "tab-panel", role: "tabpanel" }, [
-    el("div", { className: "notice-box" }, [
-      el("p", {
-        textContent: `The "${TABS.find((t) => t.id === activeTab)?.label || activeTab}" view will be added in Step 2.`,
-      }),
-    ]),
-  ]);
+  if (activeTab === "words") return renderWordsTab(analysis);
+  if (activeTab === "dependency") return renderDependencyTab(analysis);
+  if (activeTab === "tree") return renderTreeTab(analysis);
+  if (activeTab === "checks") return renderChecksTab(analysis);
+  if (activeTab === "treebank") return renderTreebankTab(analysis);
+  return renderWordsTab(analysis);
 }
 
 function renderAnalyzePage() {

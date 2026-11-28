@@ -113,10 +113,17 @@ async def lifespan(app: FastAPI):
         app.state.model_error = str(exc)
 
     # 2. Load PCFG grammar & parser
+    app.state.pcfg_prob_map = {}
     try:
         pcfg, parser = load_pcfg_parser()
         app.state.pcfg = pcfg
         app.state.parser = parser
+        if pcfg is not None:
+            for prod in pcfg.productions():
+                rhs_str = " ".join(
+                    repr(s) if isinstance(s, str) else str(s) for s in prod.rhs()
+                )
+                app.state.pcfg_prob_map[f"{prod.lhs()} -> {rhs_str}"] = float(prod.prob())
     except Exception as exc:
         app.state.pcfg = None
         app.state.parser = None
@@ -292,17 +299,27 @@ async def post_analyze(payload: Dict[str, Any] = Body(...)):
 
     # Phrase-structure tree & PCFG productions
     pcfg_eval = raw_res.get("pcfg_eval", {})
+    pcfg_prob_map = getattr(app.state, "pcfg_prob_map", {}) or {}
     productions: List[Dict[str, Any]] = []
     for rule_str in pcfg_eval.get("rules", []):
         if "[" in rule_str and rule_str.endswith("]"):
             base_rule, prob_part = rule_str.rsplit("[", 1)
+            base_rule = base_rule.strip()
             try:
                 p_val = float(prob_part.rstrip("] ").strip())
             except ValueError:
                 p_val = None
-            productions.append({"rule": base_rule.strip(), "prob": p_val})
+            productions.append({"rule": base_rule, "prob": p_val})
         else:
-            productions.append({"rule": rule_str, "prob": None})
+            base_rule = rule_str.strip()
+            if base_rule in pcfg_prob_map:
+                productions.append({"rule": base_rule, "prob": pcfg_prob_map[base_rule]})
+            else:
+                productions.append({
+                    "rule": base_rule,
+                    "prob": None,
+                    "reason": "Production not found in induced PCFG grammar.",
+                })
 
     tree = {
         "bracketed": raw_res.get("bracket_words"),

@@ -2,7 +2,9 @@
  * DOM builders for Telugu Grammar Analyzer (no innerHTML with data).
  */
 
+import { renderDependencyArcsSvg } from "./charts/arcs.js";
 import { renderPosBarChartSvg } from "./charts/bars.js";
+import { renderTreeSvg } from "./charts/tree.js";
 
 const POS_FAMILIES = {
   NOUN: "chip-pos-noun",
@@ -212,6 +214,296 @@ export function renderWordsTab(analysis) {
   ]);
 
   return el("div", { className: "tab-panel", role: "tabpanel" }, [tableWrap, chartSection]);
+}
+
+export function renderDependencyTab(analysis) {
+  const tokens = analysis.tokens || [];
+  let spacing = tokens.length > 5 ? 92 : 132;
+  const scrollWrap = el("div", { className: "svg-scroll-wrap" });
+
+  const redraw = (opts = {}) => {
+    let targetSpacing = spacing;
+    if (opts.fit && tokens.length > 0) {
+      const avail = Math.max(320, scrollWrap.clientWidth - 72);
+      targetSpacing = Math.max(88, Math.min(160, Math.floor(avail / tokens.length)));
+      spacing = targetSpacing;
+    }
+    scrollWrap.replaceChildren(renderDependencyArcsSvg(tokens, { wordSpacing: targetSpacing }));
+  };
+
+  const controls = el("div", { className: "svg-controls" }, [
+    el("button", {
+      type: "button",
+      className: "btn btn-secondary btn-sm",
+      textContent: "Smaller",
+      onClick: () => {
+        spacing = Math.max(84, spacing - 20);
+        redraw();
+      },
+    }),
+    el("button", {
+      type: "button",
+      className: "btn btn-secondary btn-sm",
+      textContent: "Larger",
+      onClick: () => {
+        spacing = Math.min(200, spacing + 20);
+        redraw();
+      },
+    }),
+    el("button", {
+      type: "button",
+      className: "btn btn-secondary btn-sm",
+      textContent: "Fit",
+      onClick: () => redraw({ fit: true }),
+    }),
+  ]);
+
+  redraw();
+
+  // Relation legend for relations present in this sentence
+  const seenRels = new Map();
+  for (const t of tokens) {
+    if (t.deprel && !seenRels.has(t.deprel)) {
+      seenRels.set(t.deprel, t.deprel_gloss || "");
+    }
+  }
+  const legendItems = Array.from(seenRels.entries()).map(([code, gloss]) =>
+    el("li", { className: "legend-item" }, [
+      el("span", { className: "rel-code", textContent: code }),
+      el("span", { className: "rel-gloss", textContent: gloss }),
+    ])
+  );
+
+  const legendSection = el("div", { className: "chart-section" }, [
+    el("h3", { className: "section-title", textContent: "Relations in this sentence" }),
+    el("ul", { className: "legend-list" }, legendItems),
+  ]);
+
+  return el("div", { className: "tab-panel", role: "tabpanel" }, [
+    controls,
+    scrollWrap,
+    legendSection,
+  ]);
+}
+
+export function renderTreeTab(analysis) {
+  const tree = analysis.tree || {};
+  const coveredText = tree.pcfg_covered
+    ? `Covered by the learned grammar (Viterbi probability: ${
+        tree.viterbi_prob !== null && tree.viterbi_prob !== undefined
+          ? Number(tree.viterbi_prob).toExponential(3)
+          : "N/A"
+      }).`
+    : "Not covered by the learned grammar (not an error).";
+
+  const statusChipClass = tree.pcfg_covered ? "chip-consistent" : "chip-na";
+  const coverageLine = el("div", { className: "coverage-line" }, [
+    el("span", {
+      className: `chip ${statusChipClass}`,
+      textContent: tree.pcfg_covered ? "Covered" : "Not covered",
+    }),
+    el("span", { textContent: coveredText }),
+  ]);
+
+  const explanation = el("p", {
+    className: "muted-note",
+    textContent:
+      "A Context-Free Grammar (CFG) tree groups words into nested phrases projected from the dependency parse. Non-terminal labels show phrase types (such as VERB_P), and leaves show the Telugu words.",
+  });
+
+  const treeBox = tree.bracketed
+    ? el("div", { className: "svg-scroll-wrap" }, [renderTreeSvg(tree.bracketed)])
+    : el("div", { className: "notice-box", textContent: "No projective phrase-structure tree available for this sentence." });
+
+  const bracketDetails = tree.bracketed
+    ? el("details", { className: "bracket-details" }, [
+        el("summary", { textContent: "Bracketed form" }),
+        el("pre", { className: "mono bracket-pre", textContent: tree.bracketed }),
+      ])
+    : null;
+
+  const productions = tree.productions || [];
+  let rulesSection = null;
+  if (productions.length > 0) {
+    const thead = el("thead", {}, [
+      el("tr", {}, [
+        el("th", { textContent: "Rule" }),
+        el("th", { className: "num", textContent: "Probability" }),
+      ]),
+    ]);
+    const tbody = el(
+      "tbody",
+      {},
+      productions.map((p) =>
+        el("tr", {}, [
+          el("td", { className: "mono", textContent: p.rule }),
+          el("td", {
+            className: "num",
+            textContent:
+              p.prob !== null && p.prob !== undefined
+                ? Number(p.prob).toFixed(5)
+                : p.reason || "null",
+          }),
+        ])
+      )
+    );
+    rulesSection = el("div", { className: "chart-section" }, [
+      el("h3", { className: "section-title", textContent: "Rules used" }),
+      el("div", { className: "table-wrap" }, [
+        el("table", { className: "data-table" }, [thead, tbody]),
+      ]),
+    ]);
+  }
+
+  return el("div", { className: "tab-panel", role: "tabpanel" }, [
+    coverageLine,
+    explanation,
+    treeBox,
+    bracketDetails,
+    rulesSection,
+  ]);
+}
+
+function getCheckStatusInfo(status) {
+  const s = (status || "").toLowerCase();
+  if (s === "consistent" || s === "none missing") {
+    return { cls: "chip-consistent", label: s === "consistent" ? "Consistent" : "None missing" };
+  }
+  if (s === "not consistent") {
+    return { cls: "chip-not-consistent", label: "Not consistent" };
+  }
+  if (s === "some missing") {
+    return { cls: "chip-unknown", label: "Some missing" };
+  }
+  return { cls: "chip-na", label: "Not applicable" };
+}
+
+export function renderChecksTab(analysis) {
+  const checks = analysis.checks || [];
+  const caveat = el("p", {
+    className: "muted-note",
+    textContent:
+      "These are pattern checks learned from a small treebank. They are not a full grammar checker, and a sentence that is not consistent with a pattern is not necessarily wrong (Telugu word order is flexible).",
+  });
+
+  const thead = el("thead", {}, [
+    el("tr", {}, [
+      el("th", { textContent: "Check" }),
+      el("th", { textContent: "Status" }),
+      el("th", { textContent: "Explanation" }),
+    ]),
+  ]);
+
+  const tbody = el(
+    "tbody",
+    {},
+    checks.map((chk) => {
+      const st = getCheckStatusInfo(chk.status);
+      const labelCell = chk.experimental
+        ? el("td", {}, [
+            el("div", { textContent: chk.label }),
+            el("span", { className: "exp-subhead", textContent: "Experimental, unvalidated" }),
+          ])
+        : el("td", { textContent: chk.label });
+
+      return el("tr", {}, [
+        labelCell,
+        el("td", {}, [el("span", { className: `chip ${st.cls}`, textContent: st.label })]),
+        el("td", { textContent: chk.explanation }),
+      ]);
+    })
+  );
+
+  return el("div", { className: "tab-panel", role: "tabpanel" }, [
+    caveat,
+    el("div", { className: "table-wrap" }, [
+      el("table", { className: "data-table" }, [thead, tbody]),
+    ]),
+  ]);
+}
+
+export function renderTreebankTab(analysis) {
+  const tm = analysis.treebank_match;
+  if (!tm || !tm.found) {
+    return el("div", { className: "tab-panel", role: "tabpanel" }, [
+      el("div", {
+        className: "notice-box",
+        textContent: "Available for treebank sentences only.",
+      }),
+    ]);
+  }
+
+  const children = [
+    el("div", { className: "coverage-line" }, [
+      el("span", { className: "chip chip-consistent", textContent: `Split: ${tm.split}` }),
+      el("span", {
+        className: "num",
+        textContent: `UPOS ${(tm.metrics.upos_accuracy * 100).toFixed(1)}% | UAS ${(tm.metrics.uas * 100).toFixed(1)}% | LAS ${(tm.metrics.las * 100).toFixed(1)}%`,
+      }),
+    ]),
+  ];
+
+  if (tm.split === "train") {
+    children.push(
+      el("div", {
+        className: "notice-box",
+        textContent:
+          "This sentence was in the model's training data, so these scores do not measure accuracy.",
+      })
+    );
+  }
+
+  const predTokens = analysis.tokens || [];
+  const thead = el("thead", {}, [
+    el("tr", {}, [
+      el("th", { className: "num", textContent: "#" }),
+      el("th", { textContent: "Word" }),
+      el("th", { textContent: "Gold POS" }),
+      el("th", { textContent: "Pred POS" }),
+      el("th", { className: "num", textContent: "Gold Head" }),
+      el("th", { className: "num", textContent: "Pred Head" }),
+      el("th", { textContent: "Gold Rel" }),
+      el("th", { textContent: "Pred Rel" }),
+    ]),
+  ]);
+
+  const makePredCell = (predVal, goldVal, isNum = false) => {
+    const differs = String(predVal) !== String(goldVal);
+    const cls = [isNum ? "num" : "", differs ? "cell-diff" : ""].filter(Boolean).join(" ");
+    if (!differs) {
+      return el("td", { className: cls, textContent: String(predVal) });
+    }
+    return el("td", { className: cls }, [
+      el("span", { textContent: String(predVal) }),
+      el("span", { className: "diff-badge", textContent: "differs" }),
+    ]);
+  };
+
+  const tbody = el(
+    "tbody",
+    {},
+    (tm.gold || []).map((g, idx) => {
+      const pred = predTokens[idx] || {};
+      return el("tr", {}, [
+        el("td", { className: "num", textContent: String(g.id) }),
+        el("td", { className: "word-cell", textContent: g.word }),
+        el("td", { textContent: g.pos }),
+        makePredCell(pred.upos ?? "-", g.pos),
+        el("td", { className: "num", textContent: String(g.head) }),
+        makePredCell(pred.head_id ?? "-", g.head, true),
+        el("td", { textContent: g.rel }),
+        makePredCell(pred.deprel ?? "-", g.rel),
+      ]);
+    })
+  );
+
+  children.push(
+    el("div", { className: "table-wrap", style: "margin-top: 12px;" }, [
+      el("table", { className: "data-table" }, [thead, tbody]),
+    ])
+  );
+
+  return el("div", { className: "tab-panel", role: "tabpanel" }, children);
 }
 
 export function renderReliabilityStrip(reliability) {
