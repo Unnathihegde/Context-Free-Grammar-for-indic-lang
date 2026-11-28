@@ -113,10 +113,17 @@ async def lifespan(app: FastAPI):
         app.state.model_error = str(exc)
 
     # 2. Load PCFG grammar & parser
+    app.state.pcfg_prob_map = {}
     try:
         pcfg, parser = load_pcfg_parser()
         app.state.pcfg = pcfg
         app.state.parser = parser
+        if pcfg is not None:
+            for prod in pcfg.productions():
+                rhs_str = " ".join(
+                    repr(s) if isinstance(s, str) else str(s) for s in prod.rhs()
+                )
+                app.state.pcfg_prob_map[f"{prod.lhs()} -> {rhs_str}"] = float(prod.prob())
     except Exception as exc:
         app.state.pcfg = None
         app.state.parser = None
@@ -292,17 +299,27 @@ async def post_analyze(payload: Dict[str, Any] = Body(...)):
 
     # Phrase-structure tree & PCFG productions
     pcfg_eval = raw_res.get("pcfg_eval", {})
+    pcfg_prob_map = getattr(app.state, "pcfg_prob_map", {}) or {}
     productions: List[Dict[str, Any]] = []
     for rule_str in pcfg_eval.get("rules", []):
         if "[" in rule_str and rule_str.endswith("]"):
             base_rule, prob_part = rule_str.rsplit("[", 1)
+            base_rule = base_rule.strip()
             try:
                 p_val = float(prob_part.rstrip("] ").strip())
             except ValueError:
                 p_val = None
-            productions.append({"rule": base_rule.strip(), "prob": p_val})
+            productions.append({"rule": base_rule, "prob": p_val})
         else:
-            productions.append({"rule": rule_str, "prob": None})
+            base_rule = rule_str.strip()
+            if base_rule in pcfg_prob_map:
+                productions.append({"rule": base_rule, "prob": pcfg_prob_map[base_rule]})
+            else:
+                productions.append({
+                    "rule": base_rule,
+                    "prob": None,
+                    "reason": "Production not found in induced PCFG grammar.",
+                })
 
     tree = {
         "bracketed": raw_res.get("bracket_words"),
@@ -476,6 +493,67 @@ async def get_reliability():
                 "Results are presented for exploratory purposes only."
             ),
         },
+    }
+
+
+def _extract_limitations_caveats() -> Dict[str, Optional[str]]:
+    """Read caveat sections directly from docs/limitations.md (never hard-coded)."""
+    fpath = os.path.join(PROJECT_ROOT, "docs", "limitations.md")
+    result: Dict[str, Optional[str]] = {
+        "pretraining_leakage": None,
+        "multiple_comparisons": None,
+        "small_tag_counts": None,
+        "muril_rare_tags": None,
+    }
+    if not os.path.exists(fpath):
+        return result
+
+    with open(fpath, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    sections: Dict[str, List[str]] = {}
+    current_key: Optional[str] = None
+    heading_map = {
+        "### 5.1": "pretraining_leakage",
+        "### 5.2": "multiple_comparisons",
+        "### 5.3": "small_tag_counts",
+        "### 5.4": "muril_rare_tags",
+    }
+
+    for line in lines:
+        stripped = line.strip()
+        matched_heading = False
+        for prefix, key in heading_map.items():
+            if stripped.startswith(prefix):
+                current_key = key
+                sections[current_key] = []
+                matched_heading = True
+                break
+        if matched_heading:
+            continue
+        if stripped.startswith("## ") or stripped.startswith("### ") or stripped == "---":
+            current_key = None
+            continue
+        if current_key is not None and stripped:
+            # Strip leading markdown bullet "- " for clean display text
+            clean_line = stripped[2:].strip() if stripped.startswith("- ") else stripped
+            sections[current_key].append(clean_line)
+
+    for key, text_lines in sections.items():
+        if text_lines:
+            result[key] = " ".join(text_lines)
+    return result
+
+
+@app.get("/api/models")
+async def get_models():
+    """Return model comparison rows from results/model_comparison.csv and caveats from docs/limitations.md."""
+    rows, msg = _read_csv_as_json_records("results/model_comparison.csv")
+    caveats = _extract_limitations_caveats()
+    return {
+        "rows": rows,
+        "message": msg,
+        "caveats": caveats,
     }
 
 

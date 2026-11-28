@@ -77,3 +77,25 @@ Multiple minimal pairs are frequently derived from a single sentence. Because pe
 - When an external LM training corpus (`data/raw/telugu_corpus.txt`) is provided (e.g., from Wikipedia, news corpora, or OSCAR), its vocabulary and genre will inevitably diverge from the pedagogical sentences in the MTG treebank.
 - Out-of-vocabulary (OOV) rates and domain divergence will significantly affect the baseline trigram model's scores.
 
+---
+
+## 5. Pretrained Transformer & Model Comparison Caveats
+
+### 5.1 Pretraining-Leakage Caveat (PLL Scoring)
+- The masked language models (`xlm-roberta-base` and `google/muril-base-cased`) used for pseudo-log-likelihood (PLL) word-order scoring were pretrained on large multilingual web corpora that may contain UD Telugu-MTG sentences or close variants.
+- Consequently, their PLL pair-ranking scores are **not** guaranteed to be leakage-free or unbiased relative to the treebank-only POS-bigram and PCFG baselines.
+
+### 5.2 Multiple-Comparison Note
+- Four models (`POS-bigram`, `Learned PCFG`, `PLL (xlm-roberta-base)`, and `PLL (google/muril-base-cased)`) were compared across word-order pair-ranking tasks without formal family-wise error correction (e.g., Bonferroni).
+- Borderline p-values such as $p = 0.0460$ (overall `PLL (xlm-roberta-base)` vs. `POS-bigram`, with overlapping 95% CIs `[0.937, 0.962]` vs. `[0.957, 0.977]`) should not be over-interpreted as strong statistical evidence.
+
+### 5.3 Small Tag Counts in BERT Per-Tag Evaluation
+- Several UPOS tags occur very rarely in the `dev` ($n = 662$ tokens) and `test` ($n = 721$ tokens) splits—for example, on `test`: `CCONJ` ($n = 1$), `PART` ($n = 2$), `ADJ` ($n = 5$), `SCONJ` ($n = 5$), `ADP` ($n = 7$), `NUM` ($n = 12$).
+- Per-tag accuracy on such small counts has high variance and cannot support reliable model-to-model ranking on individual rare tags.
+
+### 5.4 MuRIL Zero Accuracy on Rare UPOS Tags (31 Test Tokens)
+- Fine-tuned `google/muril-base-cased` scored `0` correct on `ADJ` ($0/5$), `ADP` ($0/7$), `NUM` ($0/12$), `SCONJ` ($0/5$), and `PART` ($0/2$) on the `test` split (31 tokens total, plus `CCONJ` $0/1$).
+- Inspecting MuRIL's tokenizer on 5 test examples (`పెద్ద` → `['పెద్ద']`, `కంటె` → `['క', '##ంటె']`, `ఒకే` → `['ఒకే']`, `గాని` → `['గాని']`, `ఏమిటో` → `['ఏమిటో']`) confirms it tokenizes these words cleanly without `[UNK]` tokens, so tokenization is not the cause.
+- Instead, the training log shows slower optimization under the fixed 6-epoch, `lr=3e-5` schedule (training loss `2.5861` → `2.2058` for MuRIL vs. `1.5943` → `0.1289` for XLM-R), leaving rare minority classes unlearned.
+
+

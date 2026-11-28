@@ -1,0 +1,31 @@
+task,model,metric,value,n,ci_low,ci_high,notes
+upos_acc:dev,Stanza (1.15.1),upos_acc,0.9486,662,0.9304,0.9653,"gold tokenization, 131 sentences"
+uas:dev,Stanza (1.15.1),uas,0.923,662,,,"gold tokenization, 131 sentences"
+las:dev,Stanza (1.15.1),las,0.8369,662,,,"gold tokenization, 131 sentences"
+upos_acc:test,Stanza (1.15.1),upos_acc,0.9417,721,0.9236,0.9574,"gold tokenization, 146 sentences"
+uas:test,Stanza (1.15.1),uas,0.9196,721,,,"gold tokenization, 146 sentences"
+las:test,Stanza (1.15.1),las,0.8183,721,,,"gold tokenization, 146 sentences"
+upos_acc:dev,xlm-roberta-base,upos_acc,0.9396,662,0.9212,0.9567,"gold tokenization, train_time=1589.3s (CPU (12 cores)); paired bootstrap p vs Stanza = 0.2637"
+upos_acc:test,xlm-roberta-base,upos_acc,0.9473,721,0.9287,0.9643,"gold tokenization, train_time=1589.3s (CPU (12 cores)); paired bootstrap p vs Stanza = 0.5235"
+upos_acc:dev,google/muril-base-cased,upos_acc,0.9169,662,0.8966,0.9373,"gold tokenization, train_time=1547.0s (CPU (12 cores)); paired bootstrap p vs Stanza = 0.0040"
+upos_acc:test,google/muril-base-cased,upos_acc,0.9209,721,0.8962,0.9431,"gold tokenization, train_time=1547.0s (CPU (12 cores)); paired bootstrap p vs Stanza = 0.0480"
+word_order:amod_after,POS-bigram (POS),pair_ranking_acc,0.7754,69,0.6812,0.8768,reference baseline
+word_order:amod_after,Learned PCFG (POS),pair_ranking_acc,0.6957,69,0.6014,0.7899,paired bootstrap p vs POS-bigram = 0.0180
+word_order:amod_after,PLL (xlm-roberta-base),pair_ranking_acc,0.8986,69,0.8116,0.9565,paired bootstrap p vs POS-bigram = 0.0519; pretrained MLM may have seen treebank sentences (potential pretraining leakage)
+word_order:amod_after,PLL (google/muril-base-cased),pair_ranking_acc,0.8841,69,0.8116,0.9565,paired bootstrap p vs POS-bigram = 0.0100; pretrained MLM may have seen treebank sentences (potential pretraining leakage)
+word_order:case_before,POS-bigram (POS),pair_ranking_acc,0.6964,56,0.5818,0.807,reference baseline
+word_order:case_before,Learned PCFG (POS),pair_ranking_acc,0.8214,56,0.7193,0.9182,paired bootstrap p vs POS-bigram = 0.0579
+word_order:case_before,PLL (xlm-roberta-base),pair_ranking_acc,0.9821,56,0.9455,1.0,paired bootstrap p vs POS-bigram = 0.0020; pretrained MLM may have seen treebank sentences (potential pretraining leakage)
+word_order:case_before,PLL (google/muril-base-cased),pair_ranking_acc,0.9821,56,0.9298,1.0,paired bootstrap p vs POS-bigram = 0.0020; pretrained MLM may have seen treebank sentences (potential pretraining leakage)
+word_order:det_after,POS-bigram (POS),pair_ranking_acc,0.975,140,0.9489,0.9964,reference baseline
+word_order:det_after,Learned PCFG (POS),pair_ranking_acc,0.8571,140,0.8058,0.9161,paired bootstrap p vs POS-bigram = 0.0020
+word_order:det_after,PLL (xlm-roberta-base),pair_ranking_acc,0.9929,140,0.9784,1.0,paired bootstrap p vs POS-bigram = 0.2797; pretrained MLM may have seen treebank sentences (potential pretraining leakage)
+word_order:det_after,PLL (google/muril-base-cased),pair_ranking_acc,0.95,140,0.9143,0.9855,paired bootstrap p vs POS-bigram = 0.2438; pretrained MLM may have seen treebank sentences (potential pretraining leakage)
+word_order:verb_first,POS-bigram (POS),pair_ranking_acc,0.9988,853,0.9965,1.0,reference baseline
+word_order:verb_first,Learned PCFG (POS),pair_ranking_acc,0.9865,853,0.9801,0.9924,paired bootstrap p vs POS-bigram = 0.0020
+word_order:verb_first,PLL (xlm-roberta-base),pair_ranking_acc,0.9449,853,0.9297,0.9601,paired bootstrap p vs POS-bigram = 0.0020; pretrained MLM may have seen treebank sentences (potential pretraining leakage)
+word_order:verb_first,PLL (google/muril-base-cased),pair_ranking_acc,0.9402,853,0.9238,0.9555,paired bootstrap p vs POS-bigram = 0.0020; pretrained MLM may have seen treebank sentences (potential pretraining leakage)
+word_order:ALL,POS-bigram (POS),pair_ranking_acc,0.9669,1118,0.9566,0.9768,reference baseline
+word_order:ALL,Learned PCFG (POS),pair_ranking_acc,0.9441,1118,0.9312,0.9564,paired bootstrap p vs POS-bigram = 0.0020
+word_order:ALL,PLL (xlm-roberta-base),pair_ranking_acc,0.9499,1118,0.9366,0.9617,paired bootstrap p vs POS-bigram = 0.0460; pretrained MLM may have seen treebank sentences (potential pretraining leakage)
+word_order:ALL,PLL (google/muril-base-cased),pair_ranking_acc,0.9401,1118,0.926,0.9539,paired bootstrap p vs POS-bigram = 0.0040; pretrained MLM may have seen treebank sentences (potential pretraining leakage)

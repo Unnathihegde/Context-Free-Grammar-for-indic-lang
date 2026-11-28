@@ -167,11 +167,13 @@ def test_unseen_training_tokens():
     train_vocab = {"రాము", "ఇంట్లోకి"}  # వెళ్ళాడు is unseen
 
     res_some = check_unseen_training_tokens(tokens, train_vocab=train_vocab)
-    assert res_some["status"] == "some unseen"
+    assert res_some["name"] == "Words not in the training treebank vocabulary"
+    assert res_some["status"] == "some missing"
     assert "వెళ్ళాడు" in res_some["explanation"]
+    assert "1,051 training sentences" in res_some["explanation"]
 
     res_none = check_unseen_training_tokens(tokens, train_vocab={"రాము", "ఇంట్లోకి", "వెళ్ళాడు"})
-    assert res_none["status"] == "none unseen"
+    assert res_none["status"] == "none missing"
 
 
 def test_run_all_checks():

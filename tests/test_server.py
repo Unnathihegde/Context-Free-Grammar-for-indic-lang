@@ -307,6 +307,27 @@ def test_reliability_missing_file_handling():
     assert "not found" in msg.lower()
 
 
+def test_models_endpoint(client):
+    """Test /api/models returns model_comparison.csv rows and caveats from docs/limitations.md."""
+    resp = client.get("/api/models")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "rows" in data
+    assert "caveats" in data
+    assert isinstance(data["rows"], list)
+    assert len(data["rows"]) > 0
+
+    first = data["rows"][0]
+    for col in ("task", "model", "metric", "value", "n", "ci_low", "ci_high", "notes"):
+        assert col in first
+
+    caveats = data["caveats"]
+    assert caveats["pretraining_leakage"] is not None
+    assert "leakage" in caveats["pretraining_leakage"].lower()
+    assert caveats["multiple_comparisons"] is not None
+    assert "0.046" in caveats["multiple_comparisons"]
+
+
 @pytest.mark.slow
 def test_real_server_analysis_slow():
     """Live integration test: analyze a real Telugu sentence using Stanza."""
@@ -323,3 +344,14 @@ def test_real_server_analysis_slow():
         verb_tok = [t for t in data["tokens"] if t["word"] == "వెళ్ళాడు"][0]
         assert verb_tok["possible_suffix"] == "-ాడు"
         assert data["summary"]["word_order"] in ["S-V", "S-O-V", "N/A"]
+        # Check that PCFG productions have real non-null probabilities
+        assert data["tree"]["pcfg_covered"] is True
+        assert len(data["tree"]["productions"]) > 0
+        assert all(
+            isinstance(p["prob"], float) and 0.0 < p["prob"] <= 1.0
+            for p in data["tree"]["productions"]
+        )
+        # Check neutral training vocabulary check wording
+        vocab_chk = [c for c in data["checks"] if c["key"] == "unseen_training_tokens"][0]
+        assert vocab_chk["label"] == "Words not in the training treebank vocabulary"
+        assert vocab_chk["status"] == "some missing"

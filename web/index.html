@@ -1,10 +1,33 @@
 <!DOCTYPE html>
-<html lang="te">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Telugu Grammar Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+Telugu:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <h1>Telugu Grammar Analyzer</h1>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#/analyze">Telugu Grammar Analyzer</a>
+      <nav class="topnav" aria-label="Primary navigation">
+        <a class="nav-link" href="#/analyze" data-route="analyze">Analyze</a>
+        <a class="nav-link" href="#/models" data-route="models">Models</a>
+        <a class="nav-link" href="#/about" data-route="about">About</a>
+      </nav>
+      <div class="model-status" id="model-status" aria-live="polite">
+        <span class="status-dot" id="model-status-dot" aria-hidden="true"></span>
+        <span id="model-status-text">Checking model...</span>
+      </div>
+    </div>
+    <div class="loading-bar" id="loading-bar" hidden aria-hidden="true"></div>
+  </header>
+
+  <main class="container" id="app-main" tabindex="-1"></main>
+
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>
