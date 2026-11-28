@@ -195,7 +195,7 @@ def main() -> None:
             st = stats_by_task_model[key]
             row["ci_low"] = f"{st['ci_low']:.4f}"
             row["ci_high"] = f"{st['ci_high']:.4f}"
-            if row["model"] == "xlm-roberta-base" and st["p_vs_stanza"] is not None:
+            if row["model"] in ("xlm-roberta-base", "google/muril-base-cased") and st["p_vs_stanza"] is not None:
                 base_note = row["notes"].split("; paired bootstrap p vs Stanza")[0]
                 row["notes"] = f"{base_note}; paired bootstrap p vs Stanza = {st['p_vs_stanza']:.4f}"
 

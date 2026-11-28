@@ -806,6 +806,11 @@ table.data-table tbody tr:hover {
   display: inline-block;
 }
 
+.ci-cell {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .about-block {
   margin-bottom: var(--sp-4);
 }
@@ -874,5 +879,36 @@ table.data-table tbody tr:hover {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     transition: none !important;
+  }
+}
+
+@media print {
+  .topbar,
+  .analyze-left .panel-section:first-child,
+  .result-actions,
+  .tablist,
+  .svg-controls {
+    display: none !important;
+  }
+
+  .container {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .analyze-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .analyze-left {
+    position: static;
+  }
+
+  .table-wrap,
+  .svg-scroll-wrap,
+  .chart-wrap {
+    overflow: visible !important;
+    border-color: #CBD2DC;
   }
 }

@@ -586,6 +586,23 @@ export function renderModelsPage(modelsData, reliabilityData) {
     },
   ];
 
+  const extractShortPosNote = (notesStr) => {
+    const s = String(notesStr || "");
+    const parts = [];
+    if (s.includes("gold tokenization")) parts.push("gold tokenization");
+    const pMatch = s.match(/paired bootstrap p vs Stanza\s*=\s*([0-9.]+)/);
+    if (pMatch) parts.push(`paired p vs Stanza = ${pMatch[1]}`);
+    return parts.join("; ") || s;
+  };
+
+  const trainingDetails = [];
+  for (const r of posRows) {
+    const tMatch = String(r.notes || "").match(/train_time=([^\s;]+(?:\s*\([^)]+\))?)/);
+    if (tMatch && !trainingDetails.some((d) => d.startsWith(r.model))) {
+      trainingDetails.push(`${r.model}: ${tMatch[1]}`);
+    }
+  }
+
   const posTable = el("div", { className: "table-wrap" }, [
     el("table", { className: "data-table" }, [
       el("thead", {}, [
@@ -606,31 +623,66 @@ export function renderModelsPage(modelsData, reliabilityData) {
             el("td", { textContent: r.model }),
             el("td", { textContent: r.task.replace("upos_acc:", "") }),
             el("td", { className: "num", textContent: Number(r.value).toFixed(4) }),
-            el("td", { className: "mono", textContent: fmtCi(r.ci_low, r.ci_high) }),
+            el("td", { className: "ci-cell", textContent: fmtCi(r.ci_low, r.ci_high) }),
             el("td", { className: "num", textContent: String(r.n) }),
-            el("td", { textContent: r.notes || "" }),
+            el("td", { textContent: extractShortPosNote(r.notes) }),
           ])
         )
       ),
     ]),
   ]);
 
+  const trainingDetailsEl = trainingDetails.length
+    ? el("details", { className: "bracket-details" }, [
+        el("summary", { textContent: "Training details" }),
+        el("p", { className: "muted-note", style: "margin-top: 6px;", textContent: trainingDetails.join(" | ") }),
+      ])
+    : null;
+
+  const findPosRow = (modelSubstr, split) =>
+    posRows.find((r) => r.task === `upos_acc:${split}` && r.model.includes(modelSubstr));
+  const extractP = (row) => {
+    const m = String((row && row.notes) || "").match(/paired bootstrap p vs Stanza\s*=\s*([0-9.]+)/);
+    return m ? m[1] : null;
+  };
+
+  const stanzaTest = findPosRow("Stanza", "test");
+  const xlmrTest = findPosRow("xlm-roberta", "test");
+  const murilDev = findPosRow("muril", "dev");
+  const murilTest = findPosRow("muril", "test");
+
+  let posInterp =
+    "On held-out test tokens with gold tokenization, fine-tuned xlm-roberta-base and Stanza achieve similar UPOS accuracy with overlapping 95% confidence intervals.";
+  if (stanzaTest && xlmrTest && murilDev && murilTest) {
+    const pXlmr = extractP(xlmrTest);
+    const pMurilDev = extractP(murilDev);
+    const pMurilTest = extractP(murilTest);
+    posInterp =
+      `On held-out test tokens with gold tokenization, xlm-roberta-base (${Number(xlmrTest.value).toFixed(4)}) and Stanza (${Number(stanzaTest.value).toFixed(4)}) achieve similar UPOS accuracy with overlapping 95% confidence intervals` +
+      (pXlmr ? ` (paired p = ${pXlmr}). ` : ". ") +
+      `google/muril-base-cased reaches ${Number(murilTest.value).toFixed(4)} on test` +
+      (pMurilDev && pMurilTest
+        ? ` (paired p vs Stanza = ${pMurilDev} on dev, ${pMurilTest} on test).`
+        : ".");
+  }
+
   const posSection = el("section", { className: "page-section" }, [
     el("h2", { className: "section-title", textContent: "Part-of-speech tagging" }),
     el("div", { className: "chart-wrap", style: "margin-bottom: 16px;" }, [
       renderWhiskerChartSvg(posChartGroups, {
-        width: 680,
+        width: 920,
         minDomain: 0.85,
         maxDomain: 1.0,
+        xAxisLabel: "Test UPOS accuracy",
         ariaLabel: "Test UPOS accuracy with 95% confidence intervals",
       }),
     ]),
     posTable,
+    trainingDetailsEl,
     el("p", {
       className: "muted-note",
       style: "margin-top: 12px;",
-      textContent:
-        "On held-out test tokens with gold tokenization, fine-tuned xlm-roberta-base and Stanza achieve similar UPOS accuracy with overlapping 95% confidence intervals (paired bootstrap difference not statistically significant).",
+      textContent: posInterp,
     }),
   ]);
 
@@ -684,7 +736,7 @@ export function renderModelsPage(modelsData, reliabilityData) {
             el("td", { className: "mono", textContent: r.task.replace("word_order:", "") }),
             el("td", { textContent: r.model }),
             el("td", { className: "num", textContent: Number(r.value).toFixed(4) }),
-            el("td", { className: "mono", textContent: fmtCi(r.ci_low, r.ci_high) }),
+            el("td", { className: "ci-cell", textContent: fmtCi(r.ci_low, r.ci_high) }),
             el("td", { className: "num", textContent: String(r.n) }),
             el("td", { textContent: r.notes || "" }),
           ])

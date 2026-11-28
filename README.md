@@ -38,6 +38,25 @@ pip install -r requirements.txt
 
 ---
 
+## Run the web demo
+
+The web interface is plain HTML, CSS, and JavaScript served by FastAPI and Uvicorn. **Streamlit is not required** to run it.
+
+```powershell
+# 1. Activate your virtual environment and install dependencies
+pip install -r requirements.txt
+
+# 2. (One-time) Download Stanza's Telugu model if not already cached
+python -c "import stanza; stanza.download('te')"
+
+# 3. Start the web server
+python -m uvicorn app.server:app --port 8000
+```
+
+Then open `http://127.0.0.1:8000` in Chrome, Edge, or Firefox.
+
+---
+
 ## Commands & Reproduction
 
 All metrics in this project are dynamically computed from scripts and saved to `results/`.

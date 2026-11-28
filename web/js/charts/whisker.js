@@ -22,7 +22,7 @@ export function computeWhiskerLayout(groups, options = {}) {
   const labelWidth = options.labelWidth || 170;
   const rightPad = options.rightPad || 56;
   const topPad = 16;
-  const bottomPad = 34;
+  const bottomPad = options.xAxisLabel ? 52 : 34;
   const rowHeight = options.rowHeight || 22;
   const groupGap = options.groupGap || 12;
 
@@ -154,6 +154,18 @@ export function renderWhiskerChartSvg(groups, options = {}) {
   axis.setAttribute("stroke", "#E3E6EB");
   axis.setAttribute("stroke-width", "1");
   svg.appendChild(axis);
+
+  if (options.xAxisLabel) {
+    const xLbl = document.createElementNS(SVG_NS, "text");
+    xLbl.setAttribute("x", String((layout.plotLeft + layout.plotRight) / 2));
+    xLbl.setAttribute("y", String(layout.axisY + 34));
+    xLbl.setAttribute("text-anchor", "middle");
+    xLbl.setAttribute("font-size", "11");
+    xLbl.setAttribute("font-weight", "500");
+    xLbl.setAttribute("fill", "#5A6372");
+    xLbl.textContent = options.xAxisLabel;
+    svg.appendChild(xLbl);
+  }
 
   // Group headers
   for (const gh of layout.groupHeaders) {
