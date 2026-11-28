@@ -5,6 +5,7 @@
 import { renderDependencyArcsSvg } from "./charts/arcs.js";
 import { renderPosBarChartSvg } from "./charts/bars.js";
 import { renderTreeSvg } from "./charts/tree.js";
+import { MODEL_COLORS, renderWhiskerChartSvg } from "./charts/whisker.js";
 
 const POS_FAMILIES = {
   NOUN: "chip-pos-noun",
@@ -547,4 +548,339 @@ export function formatAnalysisAsText(analysis) {
     );
   }
   return lines.join("\n");
+}
+
+function fmtCi(low, high) {
+  if (low === null || low === undefined || high === null || high === undefined) {
+    return "-";
+  }
+  return `[${Number(low).toFixed(3)}, ${Number(high).toFixed(3)}]`;
+}
+
+export function renderModelsPage(modelsData, reliabilityData) {
+  if (!modelsData || !modelsData.rows) {
+    return el("div", { className: "notice-box" }, [
+      el("p", {
+        textContent:
+          (modelsData && modelsData.message) ||
+          "Model comparison results are not available yet.",
+      }),
+    ]);
+  }
+
+  const rows = modelsData.rows || [];
+  const caveats = modelsData.caveats || {};
+
+  // 1. Part-of-speech tagging section
+  const posRows = rows.filter((r) => r.metric === "upos_acc");
+  const testPosRows = posRows.filter((r) => r.task === "upos_acc:test");
+  const posChartGroups = [
+    {
+      groupLabel: "Test UPOS (n = 721)",
+      items: testPosRows.map((r) => ({
+        label: r.model,
+        value: Number(r.value),
+        ciLow: r.ci_low !== null ? Number(r.ci_low) : null,
+        ciHigh: r.ci_high !== null ? Number(r.ci_high) : null,
+      })),
+    },
+  ];
+
+  const posTable = el("div", { className: "table-wrap" }, [
+    el("table", { className: "data-table" }, [
+      el("thead", {}, [
+        el("tr", {}, [
+          el("th", { textContent: "Model" }),
+          el("th", { textContent: "Split" }),
+          el("th", { className: "num", textContent: "UPOS" }),
+          el("th", { textContent: "95% CI" }),
+          el("th", { className: "num", textContent: "n" }),
+          el("th", { textContent: "Notes" }),
+        ]),
+      ]),
+      el(
+        "tbody",
+        {},
+        posRows.map((r) =>
+          el("tr", {}, [
+            el("td", { textContent: r.model }),
+            el("td", { textContent: r.task.replace("upos_acc:", "") }),
+            el("td", { className: "num", textContent: Number(r.value).toFixed(4) }),
+            el("td", { className: "mono", textContent: fmtCi(r.ci_low, r.ci_high) }),
+            el("td", { className: "num", textContent: String(r.n) }),
+            el("td", { textContent: r.notes || "" }),
+          ])
+        )
+      ),
+    ]),
+  ]);
+
+  const posSection = el("section", { className: "page-section" }, [
+    el("h2", { className: "section-title", textContent: "Part-of-speech tagging" }),
+    el("div", { className: "chart-wrap", style: "margin-bottom: 16px;" }, [
+      renderWhiskerChartSvg(posChartGroups, {
+        width: 680,
+        minDomain: 0.85,
+        maxDomain: 1.0,
+        ariaLabel: "Test UPOS accuracy with 95% confidence intervals",
+      }),
+    ]),
+    posTable,
+    el("p", {
+      className: "muted-note",
+      style: "margin-top: 12px;",
+      textContent:
+        "On held-out test tokens with gold tokenization, fine-tuned xlm-roberta-base and Stanza achieve similar UPOS accuracy with overlapping 95% confidence intervals (paired bootstrap difference not statistically significant).",
+    }),
+  ]);
+
+  // 2. Word-order pairs section
+  const woRows = rows.filter((r) => r.task.startsWith("word_order:"));
+  const kindOrder = ["amod_after", "case_before", "det_after", "verb_first", "ALL"];
+  const woGroups = kindOrder
+    .map((kind) => {
+      const kRows = woRows.filter((r) => r.task === `word_order:${kind}`);
+      return {
+        groupLabel: kind,
+        items: kRows.map((r) => ({
+          label: r.model,
+          value: Number(r.value),
+          ciLow: r.ci_low !== null ? Number(r.ci_low) : null,
+          ciHigh: r.ci_high !== null ? Number(r.ci_high) : null,
+        })),
+      };
+    })
+    .filter((g) => g.items.length > 0);
+
+  const legendItems = Object.entries({
+    "POS-bigram (POS)": MODEL_COLORS["POS-bigram (POS)"],
+    "Learned PCFG (POS)": MODEL_COLORS["Learned PCFG (POS)"],
+    "PLL (xlm-roberta-base)": MODEL_COLORS["PLL (xlm-roberta-base)"],
+    "PLL (google/muril-base-cased)": MODEL_COLORS["PLL (google/muril-base-cased)"],
+  }).map(([name, color]) =>
+    el("span", { className: "whisker-legend-item" }, [
+      el("span", { className: "whisker-swatch", style: `background: ${color};` }),
+      el("span", { textContent: name }),
+    ])
+  );
+
+  const woTable = el("div", { className: "table-wrap" }, [
+    el("table", { className: "data-table" }, [
+      el("thead", {}, [
+        el("tr", {}, [
+          el("th", { textContent: "Kind" }),
+          el("th", { textContent: "Model" }),
+          el("th", { className: "num", textContent: "Accuracy" }),
+          el("th", { textContent: "95% CI" }),
+          el("th", { className: "num", textContent: "n" }),
+          el("th", { textContent: "Notes / p-value" }),
+        ]),
+      ]),
+      el(
+        "tbody",
+        {},
+        woRows.map((r) =>
+          el("tr", {}, [
+            el("td", { className: "mono", textContent: r.task.replace("word_order:", "") }),
+            el("td", { textContent: r.model }),
+            el("td", { className: "num", textContent: Number(r.value).toFixed(4) }),
+            el("td", { className: "mono", textContent: fmtCi(r.ci_low, r.ci_high) }),
+            el("td", { className: "num", textContent: String(r.n) }),
+            el("td", { textContent: r.notes || "" }),
+          ])
+        )
+      ),
+    ]),
+  ]);
+
+  const cleanCaveat = (txt) =>
+    String(txt || "")
+      .replace(/\*\*/g, "")
+      .replace(/`/g, "")
+      .replace(/\$([^$]+)\$/g, "$1");
+
+  const caveatKeys = [
+    ["Pretraining leakage caveat", caveats.pretraining_leakage],
+    ["Multiple comparisons", caveats.multiple_comparisons],
+    ["Small per-tag counts", caveats.small_tag_counts],
+    ["MuRIL rare-tag accuracy", caveats.muril_rare_tags],
+  ]
+    .filter(([, txt]) => Boolean(txt))
+    .map(([title, txt]) => [title, cleanCaveat(txt)]);
+
+  const caveatBlock = caveatKeys.length
+    ? el(
+        "div",
+        { className: "notice-box", style: "margin-top: 16px;" },
+        caveatKeys.map(([title, txt]) =>
+          el("p", { style: "margin: 0 0 8px 0;" }, [
+            el("strong", { textContent: `${title}: ` }),
+            el("span", { textContent: txt }),
+          ])
+        )
+      )
+    : null;
+
+  const woSection = el("section", { className: "page-section" }, [
+    el("h2", { className: "section-title", textContent: "Word-order pairs" }),
+    el("div", { className: "whisker-legend" }, legendItems),
+    el("div", { className: "chart-wrap", style: "margin-bottom: 16px;" }, [
+      renderWhiskerChartSvg(woGroups, {
+        width: 720,
+        minDomain: 0.55,
+        maxDomain: 1.0,
+        ariaLabel: "Word-order pair ranking accuracy with 95% confidence intervals",
+      }),
+    ]),
+    woTable,
+    el("p", {
+      className: "muted-note",
+      style: "margin-top: 12px;",
+      textContent:
+        "Across all 1,118 minimal pairs, the local POS-bigram baseline outperforms the hierarchical PCFG and both masked-LM PLL scorers, driven by verb_first pairs (n = 853); PLL scores higher on case_before (n = 56) but may reflect pretraining exposure.",
+    }),
+    caveatBlock,
+  ]);
+
+  // 3. Agreement & data-size section from /api/reliability
+  const relChildren = [
+    el("h2", { className: "section-title", textContent: "Agreement and data-size results" }),
+  ];
+
+  if (reliabilityData) {
+    const ag = reliabilityData.agreement_results || {};
+    const ds = reliabilityData.datasize_curve || {};
+
+    relChildren.push(
+      el("div", { className: "notice-box", style: "margin-bottom: 12px;" }, [
+        el("span", {
+          className: `chip ${ag.reportable ? "chip-consistent" : "chip-unknown"}`,
+          textContent: ag.reportable ? "Reportable" : "Experimental, unvalidated",
+        }),
+        el("p", {
+          style: "margin: 6px 0 0 0;",
+          textContent: ag.reportable
+            ? "Agreement results meet reportability criteria."
+            : `Not reportable: ${ag.reportability_reason || "Validation incomplete."}`,
+        }),
+      ])
+    );
+
+    if (Array.isArray(ag.data) && ag.data.length > 0) {
+      relChildren.push(
+        el("div", { className: "table-wrap", style: "margin-bottom: 16px;" }, [
+          el("table", { className: "data-table" }, [
+            el("thead", {}, [
+              el("tr", {}, [
+                el("th", { textContent: "Source" }),
+                el("th", { className: "num", textContent: "Pairs" }),
+                el("th", { className: "num", textContent: "B1 Acc" }),
+                el("th", { className: "num", textContent: "G Acc" }),
+                el("th", { className: "num", textContent: "Hybrid Acc" }),
+                el("th", { textContent: "Status" }),
+              ]),
+            ]),
+            el(
+              "tbody",
+              {},
+              ag.data.map((r) =>
+                el("tr", {}, [
+                  el("td", { textContent: r.source || "" }),
+                  el("td", { className: "num", textContent: String(r.n_pairs ?? "-") }),
+                  el("td", { className: "num", textContent: r.b1_acc != null ? Number(r.b1_acc).toFixed(3) : "-" }),
+                  el("td", { className: "num", textContent: r.g_acc != null ? Number(r.g_acc).toFixed(3) : "-" }),
+                  el("td", { className: "num", textContent: r.hybrid_acc != null ? Number(r.hybrid_acc).toFixed(3) : "-" }),
+                  el("td", { textContent: r.table_status || "unvalidated" }),
+                ])
+              )
+            ),
+          ]),
+        ])
+      );
+    }
+
+    if (Array.isArray(ds.data) && ds.data.length > 0) {
+      relChildren.push(
+        el("div", { className: "table-wrap" }, [
+          el("table", { className: "data-table" }, [
+            el("thead", {}, [
+              el("tr", {}, [
+                el("th", { textContent: "Source" }),
+                el("th", { className: "num", textContent: "Requested N" }),
+                el("th", { className: "num", textContent: "LM Sentences" }),
+                el("th", { className: "num", textContent: "B1 Acc" }),
+                el("th", { textContent: "LM Mode" }),
+              ]),
+            ]),
+            el(
+              "tbody",
+              {},
+              ds.data.map((r) =>
+                el("tr", {}, [
+                  el("td", { textContent: r.source || "" }),
+                  el("td", { className: "num", textContent: String(r.requested_n ?? "-") }),
+                  el("td", { className: "num", textContent: String(r.lm_training_sentences ?? "-") }),
+                  el("td", { className: "num", textContent: r.b1_acc != null ? Number(r.b1_acc).toFixed(3) : "-" }),
+                  el("td", { textContent: r.lm_mode || "-" }),
+                ])
+              )
+            ),
+          ]),
+        ])
+      );
+    }
+  }
+
+  const relSection = el("section", { className: "page-section" }, relChildren);
+
+  return el("div", { className: "doc-page" }, [posSection, woSection, relSection]);
+}
+
+export function renderAboutPage() {
+  const paragraphs = [
+    [
+      "1. What this project is",
+      "Telugu Grammar Analyzer is an empirical mini-project studying Context-Free Grammar (CFG) induction and syntactic pattern checking for Telugu, an agglutinative, head-final Dravidian language. It provides an interactive viewer over automatic Universal Dependencies parses alongside transparent evaluation metrics.",
+    ],
+    [
+      "2. How the grammar is learned from the treebank",
+      "Dependency trees from the Universal Dependencies Telugu-MTG treebank (1,328 sentences total; 1,326 usable after filtering multi-root and non-projective trees) are converted into projective phrase-structure trees via head-outward projection after removing punctuation. The trees are binarized into Chomsky Normal Form (horzMarkov=1) to induce a 375-rule PCFG over coarse UPOS tags.",
+    ],
+    [
+      "3. What the pattern checks do",
+      "The syntactic checks inspect the automatic Stanza dependency parse for canonical Telugu word-order tendencies (sentence-final root verbs, determiners and adjectives before head nouns, postpositions after head nouns), words absent from the 1,051-sentence training vocabulary, and an experimental pronoun-verb agreement heuristic. These are descriptive pattern checks, not a full grammar checker.",
+    ],
+    [
+      "4. What was measured",
+      "On held-out UD Telugu-MTG splits with gold tokenization, Stanza 1.15.1 achieves 0.942 UPOS accuracy, 0.920 UAS, and 0.818 LAS on test (146 sentences, 721 tokens), while fine-tuned xlm-roberta-base reaches 0.947 UPOS (difference vs. Stanza not statistically significant, p = 0.524). Across 1,118 minimal word-order pairs in 5-fold CV, a local POS-bigram baseline (0.967) outperformed the learned POS-level PCFG (0.944, p = 0.002).",
+    ],
+    [
+      "5. What was not measured",
+      "Because UD Telugu-MTG leaves LEMMA and FEATS unpopulated and contains short pedagogical sentences (mean ~4.9 tokens), morphological inflection, long-range colloquial discourse, and non-projective scrambling are not evaluated. Masked-LM pseudo-log-likelihood scores may reflect pretraining exposure to web text.",
+    ],
+    [
+      "6. Limitations",
+      "The subject-verb agreement table and suffix column are experimental and unvalidated, and agreement evaluation results are marked non-reportable until native-speaker validation is completed. All automatic parses and transliterations (ISO 15919) may contain errors.",
+    ],
+  ];
+
+  return el("div", { className: "doc-page" }, [
+    el("section", { className: "page-section" }, [
+      el("h1", { className: "section-title", textContent: "About Telugu Grammar Analyzer" }),
+      ...paragraphs.map(([heading, body]) =>
+        el("div", { className: "about-block" }, [
+          el("h2", { className: "about-heading", textContent: heading }),
+          el("p", { className: "about-body", textContent: body }),
+        ])
+      ),
+    ]),
+    el("section", { className: "page-section" }, [
+      el("h2", { className: "section-title", textContent: "Treebank source & licence" }),
+      el("p", {
+        className: "about-body",
+        textContent:
+          "Treebank data: Universal Dependencies Telugu-MTG (UD_Telugu-MTG), licensed under Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0). Automatic parsing is powered by Stanza (UD Telugu-MTG).",
+      }),
+    ]),
+  ]);
 }

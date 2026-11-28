@@ -6,16 +6,19 @@ import {
   analyzeSentence,
   fetchExamples,
   fetchHealth,
+  fetchModels,
   fetchReliability,
 } from "./api.js";
 import { navigateTo, startRouter } from "./router.js";
 import {
   el,
   formatAnalysisAsText,
+  renderAboutPage,
   renderChecksTab,
   renderDependencyTab,
   renderEmptyState,
   renderErrorBox,
+  renderModelsPage,
   renderReliabilityStrip,
   renderSummarySection,
   renderTreeTab,
@@ -36,6 +39,7 @@ const state = {
   health: null,
   examples: [],
   reliability: null,
+  models: null,
   inputText: "",
   loading: false,
   error: null,
@@ -337,11 +341,11 @@ function renderPlaceholderPage(title, desc) {
 function render() {
   updateTopBar();
   if (state.route.page === "models") {
-    renderPlaceholderPage("Models", "The Models comparison page will be added in Step 3.");
+    appMain.replaceChildren(renderModelsPage(state.models, state.reliability));
     return;
   }
   if (state.route.page === "about") {
-    renderPlaceholderPage("About", "The About page will be added in Step 3.");
+    appMain.replaceChildren(renderAboutPage());
     return;
   }
   renderAnalyzePage();
@@ -354,14 +358,16 @@ async function init() {
   });
 
   try {
-    const [health, examples, reliability] = await Promise.all([
+    const [health, examples, reliability, models] = await Promise.all([
       fetchHealth().catch(() => null),
       fetchExamples().catch(() => []),
       fetchReliability().catch(() => null),
+      fetchModels().catch(() => null),
     ]);
     state.health = health;
     state.examples = Array.isArray(examples) ? examples : [];
     state.reliability = reliability;
+    state.models = models;
   } finally {
     render();
   }

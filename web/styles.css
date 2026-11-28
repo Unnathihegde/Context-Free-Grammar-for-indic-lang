@@ -767,6 +767,64 @@ table.data-table tbody tr:hover {
   font-weight: 600;
 }
 
+/* Models & About document pages */
+.doc-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  max-width: 960px;
+}
+
+.page-section {
+  padding-bottom: var(--sp-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.page-section:last-child {
+  border-bottom: none;
+}
+
+.whisker-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-5);
+  margin-bottom: var(--sp-3);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.whisker-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.whisker-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.about-block {
+  margin-bottom: var(--sp-4);
+}
+
+.about-heading {
+  margin: 0 0 var(--sp-1) 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.about-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+  max-width: 74ch;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .analyze-layout {

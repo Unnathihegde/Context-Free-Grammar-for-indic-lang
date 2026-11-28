@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { computeArcLayout } from "../../web/js/charts/arcs.js";
+import { computeArcLayout, computeHeadOffsets } from "../../web/js/charts/arcs.js";
 
 test("computeArcLayout positions words and non-colliding arcs", () => {
   const tokens = [
@@ -25,4 +25,18 @@ test("computeArcLayout handles empty token list", () => {
   assert.equal(layout.words.length, 0);
   assert.equal(layout.arcs.length, 0);
   assert.ok(layout.width >= 360);
+});
+
+test("computeHeadOffsets spreads multiple arcs sharing the same head word", () => {
+  const arcs = [
+    { id: 1, headId: 3, span: 2, depIdx: 0 },
+    { id: 2, headId: 3, span: 1, depIdx: 1 },
+    { id: 4, headId: 3, span: 1, depIdx: 3 },
+  ];
+  const offsets = computeHeadOffsets(arcs, 8);
+  assert.equal(offsets.size, 3);
+  const vals = Array.from(offsets.values());
+  // All three offsets must be distinct and symmetric around 0
+  assert.equal(new Set(vals).size, 3);
+  assert.equal(vals.reduce((a, b) => a + b, 0), 0);
 });

@@ -5,6 +5,36 @@
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /**
+ * Spread arc anchor x-positions across a head word's width so multiple arcs
+ * landing on the same head do not stack on a single point.
+ * Ordered by arc span (smallest span nearest center, or left-to-right by span).
+ * @param {Array<{id:number, headId:number, span:number, depIdx:number}>} arcs
+ * @param {number} step
+ */
+export function computeHeadOffsets(arcs, step = 8) {
+  const byHead = new Map();
+  for (const a of arcs) {
+    if (!byHead.has(a.headId)) byHead.set(a.headId, []);
+    byHead.get(a.headId).push(a);
+  }
+
+  const offsets = new Map();
+  for (const [, group] of byHead.entries()) {
+    if (group.length <= 1) {
+      if (group.length === 1) offsets.set(group[0].id, 0);
+      continue;
+    }
+    const sorted = [...group].sort((a, b) => a.span - b.span || a.depIdx - b.depIdx);
+    const k = sorted.length;
+    sorted.forEach((a, idx) => {
+      const raw = (idx - (k - 1) / 2) * step;
+      offsets.set(a.id, Math.max(-22, Math.min(22, raw)));
+    });
+  }
+  return offsets;
+}
+
+/**
  * Pure layout function (no DOM) computing word slots, arc curves, and pill positions.
  * @param {Array<{id:number, word:string, upos:string, head_id:number, deprel:string}>} tokens
  * @param {{wordSpacing?:number}} options
@@ -18,12 +48,7 @@ export function computeArcLayout(tokens, options = {}) {
   const idToIdx = new Map();
   list.forEach((t, idx) => idToIdx.set(t.id, idx));
 
-  const arcs = [];
-  let maxArcHeight = 52;
-
-  // Track midpoints to stagger overlapping label pills slightly
-  const usedMidpoints = [];
-
+  const rawArcs = [];
   for (let i = 0; i < list.length; i++) {
     const tok = list[i];
     if (!tok.head_id || tok.head_id === 0 || !idToIdx.has(tok.head_id)) {
@@ -31,15 +56,27 @@ export function computeArcLayout(tokens, options = {}) {
     }
     const headIdx = idToIdx.get(tok.head_id);
     if (headIdx === i) continue;
+    rawArcs.push({
+      id: tok.id,
+      headId: tok.head_id,
+      deprel: tok.deprel || "",
+      depIdx: i,
+      headIdx,
+      span: Math.abs(headIdx - i),
+    });
+  }
 
-    const span = Math.abs(headIdx - i);
-    let arcHeight = 38 + span * 34;
+  const headOffsets = computeHeadOffsets(rawArcs);
+  const arcs = [];
+  let maxArcHeight = 52;
+  const usedMidpoints = [];
 
-    const x1 = padX + headIdx * wordSpacing + wordSpacing / 2;
-    const x2 = padX + i * wordSpacing + wordSpacing / 2;
+  for (const a of rawArcs) {
+    let arcHeight = 38 + a.span * 34;
+    const x1 = padX + a.headIdx * wordSpacing + wordSpacing / 2 + (headOffsets.get(a.id) || 0);
+    const x2 = padX + a.depIdx * wordSpacing + wordSpacing / 2;
     const apexX = (x1 + x2) / 2;
 
-    // Stagger if another arc has a very close apexX and similar height
     for (const prev of usedMidpoints) {
       if (Math.abs(prev.x - apexX) < 42 && Math.abs(prev.h - arcHeight) < 26) {
         arcHeight += 28;
@@ -49,14 +86,14 @@ export function computeArcLayout(tokens, options = {}) {
     if (arcHeight > maxArcHeight) maxArcHeight = arcHeight;
 
     arcs.push({
-      id: tok.id,
-      headId: tok.head_id,
-      deprel: tok.deprel || "",
+      id: a.id,
+      headId: a.headId,
+      deprel: a.deprel,
       x1,
       x2,
       arcHeight,
       apexX,
-      pillWidth: Math.max(42, (tok.deprel || "").length * 7.5 + 16),
+      pillWidth: Math.max(42, a.deprel.length * 7.5 + 16),
       pillHeight: 20,
     });
   }
@@ -99,6 +136,7 @@ export function renderDependencyArcsSvg(tokens, options = {}) {
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", "Dependency arc diagram");
   svg.style.display = "block";
+  svg.style.margin = "0 auto";
 
   // Arrowhead marker
   const defs = document.createElementNS(SVG_NS, "defs");
@@ -121,7 +159,7 @@ export function renderDependencyArcsSvg(tokens, options = {}) {
   defs.appendChild(createMarker("dep-arrow-active", "#1F4FD8"));
   svg.appendChild(defs);
 
-  // Root markers
+  // Root markers (thin 1.5px grey line drawn behind arcs, ROOT pill above)
   for (const w of layout.words) {
     if (!w.isRoot) continue;
     const rootLine = document.createElementNS(SVG_NS, "line");
@@ -129,8 +167,8 @@ export function renderDependencyArcsSvg(tokens, options = {}) {
     rootLine.setAttribute("y1", "22");
     rootLine.setAttribute("x2", String(w.x));
     rootLine.setAttribute("y2", String(layout.arcBaseY - 4));
-    rootLine.setAttribute("stroke", "#14181F");
-    rootLine.setAttribute("stroke-width", "2");
+    rootLine.setAttribute("stroke", "#5A6372");
+    rootLine.setAttribute("stroke-width", "1.5");
     rootLine.setAttribute("marker-end", "url(#dep-arrow)");
     svg.appendChild(rootLine);
 
