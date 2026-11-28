@@ -479,6 +479,67 @@ async def get_reliability():
     }
 
 
+def _extract_limitations_caveats() -> Dict[str, Optional[str]]:
+    """Read caveat sections directly from docs/limitations.md (never hard-coded)."""
+    fpath = os.path.join(PROJECT_ROOT, "docs", "limitations.md")
+    result: Dict[str, Optional[str]] = {
+        "pretraining_leakage": None,
+        "multiple_comparisons": None,
+        "small_tag_counts": None,
+        "muril_rare_tags": None,
+    }
+    if not os.path.exists(fpath):
+        return result
+
+    with open(fpath, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    sections: Dict[str, List[str]] = {}
+    current_key: Optional[str] = None
+    heading_map = {
+        "### 5.1": "pretraining_leakage",
+        "### 5.2": "multiple_comparisons",
+        "### 5.3": "small_tag_counts",
+        "### 5.4": "muril_rare_tags",
+    }
+
+    for line in lines:
+        stripped = line.strip()
+        matched_heading = False
+        for prefix, key in heading_map.items():
+            if stripped.startswith(prefix):
+                current_key = key
+                sections[current_key] = []
+                matched_heading = True
+                break
+        if matched_heading:
+            continue
+        if stripped.startswith("## ") or stripped.startswith("### ") or stripped == "---":
+            current_key = None
+            continue
+        if current_key is not None and stripped:
+            # Strip leading markdown bullet "- " for clean display text
+            clean_line = stripped[2:].strip() if stripped.startswith("- ") else stripped
+            sections[current_key].append(clean_line)
+
+    for key, text_lines in sections.items():
+        if text_lines:
+            result[key] = " ".join(text_lines)
+    return result
+
+
+@app.get("/api/models")
+async def get_models():
+    """Return model comparison rows from results/model_comparison.csv and caveats from docs/limitations.md."""
+    rows, msg = _read_csv_as_json_records("results/model_comparison.csv")
+    caveats = _extract_limitations_caveats()
+    return {
+        "rows": rows,
+        "message": msg,
+        "caveats": caveats,
+    }
+
+
 # Mount static files for the web front end (declared after API routes)
 WEB_DIR = os.path.join(PROJECT_ROOT, "web")
 if os.path.exists(WEB_DIR):
